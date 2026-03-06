@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const totalEmployees = await prisma.user.count({ where: { role: "employee" } })
 
-  const stats = policies.map((p) => ({
+  const stats = policies.map((p: { id: string; title: string; category: string; _count: { acknowledgments: number } }) => ({
     id: p.id,
     title: p.title,
     category: p.category,
