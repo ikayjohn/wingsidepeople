@@ -6,6 +6,14 @@ import { daysUntil, isSameMonthDay, nextBirthdayDate } from "@/lib/birthday-util
 import { canAccessAdminArea } from "@/lib/rbac"
 import { getMissingProfileFields } from "@/lib/profile-completion"
 
+type BirthdayUser = {
+  id: string
+  name: string | null
+  preferredName: string | null
+  department: string | null
+  birthday: Date | null
+}
+
 export default async function DashboardPage() {
   const session = await auth()
   if (!session) redirect("/login")
@@ -86,7 +94,7 @@ export default async function DashboardPage() {
   const upcomingEvents = results[3].status === "fulfilled" ? results[3].value : []
   const policyUpdates = results[4].status === "fulfilled" ? results[4].value : []
   const recognitionHighlights = results[5].status === "fulfilled" ? results[5].value : []
-  const birthdayUsers = results[6].status === "fulfilled" ? results[6].value : []
+  const birthdayUsers: BirthdayUser[] = results[6].status === "fulfilled" ? results[6].value : []
 
   const missingProfileFields = getMissingProfileFields(profile)
 
