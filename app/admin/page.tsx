@@ -5,6 +5,8 @@ import { canAccessAdminArea, canAccessAdminSection } from "@/lib/rbac"
 import { prisma } from "@/lib/prisma"
 import { getMissingProfileFields, type ProfileSnapshot } from "@/lib/profile-completion"
 
+const STAFF_ROLE_FILTER = { notIn: ["admin", "super_admin"] }
+
 export default async function AdminDashboard() {
   const session = await auth()
   if (!session) redirect("/login")
@@ -13,10 +15,16 @@ export default async function AdminDashboard() {
   const [statusCounts, activeProfiles, pendingApprovals] = await Promise.all([
     prisma.user.groupBy({
       by: ["status"],
+      where: {
+        role: STAFF_ROLE_FILTER,
+      },
       _count: { _all: true },
     }),
     prisma.user.findMany({
-      where: { status: "active" },
+      where: {
+        status: "active",
+        role: STAFF_ROLE_FILTER,
+      },
       select: {
         employeeId: true,
         gender: true,
@@ -33,7 +41,10 @@ export default async function AdminDashboard() {
       },
     }),
     prisma.user.findMany({
-      where: { status: "pending_approval" },
+      where: {
+        status: "pending_approval",
+        role: STAFF_ROLE_FILTER,
+      },
       select: {
         id: true,
         name: true,
@@ -193,8 +204,8 @@ export default async function AdminDashboard() {
       </div>
 
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total users" value={totalUsers} tone="slate" />
-        <StatCard label="Active users" value={activeUsers} tone="green" />
+        <StatCard label="Total staff" value={totalUsers} tone="slate" />
+        <StatCard label="Active staff" value={activeUsers} tone="green" />
         <StatCard label="Pending approvals" value={pendingUsers} tone={pendingUsers > 0 ? "amber" : "slate"} />
         <StatCard label="Incomplete profiles" value={incompleteProfiles} tone={incompleteProfiles > 0 ? "rose" : "slate"} />
       </section>

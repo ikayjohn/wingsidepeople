@@ -99,6 +99,9 @@ Open: `http://localhost:3001`
   - `/admin/leave-requests`
 - Ops:
   - `/api/health`
+  - `/api/cron/approval-reminders` (protected by `CRON_SECRET`)
+  - `/api/cron/birthday-notifications` (protected by `CRON_SECRET`)
+  - `/api/cron/event-reminders` (protected by `CRON_SECRET`)
 
 ## Scripts
 
