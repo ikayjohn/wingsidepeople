@@ -18,17 +18,20 @@ export async function auth(): Promise<AppSession | null> {
 
   const email = data.user.email.toLowerCase()
 
+  const userSelect = {
+    id: true,
+    email: true,
+    name: true,
+    image: true,
+    role: true,
+    status: true,
+    lastLogin: true,
+  } as const
+
   const nameFromAuth = data.user.user_metadata?.name ?? null
   let dbUser = await prisma.user.findUnique({
     where: { email },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      image: true,
-      role: true,
-      status: true,
-    },
+    select: userSelect,
   })
 
   if (!dbUser) {
@@ -39,14 +42,7 @@ export async function auth(): Promise<AppSession | null> {
           name: nameFromAuth,
           status: "pending_approval",
         },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          image: true,
-          role: true,
-          status: true,
-        },
+        select: userSelect,
       })
     } catch (error) {
       const isUniqueConflict =
@@ -56,28 +52,14 @@ export async function auth(): Promise<AppSession | null> {
       // If another parallel request just created this user, re-read it.
       dbUser = await prisma.user.findUnique({
         where: { email },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          image: true,
-          role: true,
-          status: true,
-        },
+        select: userSelect,
       })
     }
   } else if (nameFromAuth && dbUser.name !== nameFromAuth) {
     dbUser = await prisma.user.update({
       where: { id: dbUser.id },
       data: { name: nameFromAuth },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        image: true,
-        role: true,
-        status: true,
-      },
+      select: userSelect,
     })
   }
 
@@ -87,11 +69,15 @@ export async function auth(): Promise<AppSession | null> {
     return null
   }
 
-  await prisma.user.update({
-    where: { id: dbUser.id },
-    data: { lastLogin: new Date() },
-    select: { id: true },
-  })
+  // Only update lastLogin at most once per hour to avoid unnecessary DB writes
+  const ONE_HOUR = 60 * 60 * 1000
+  if (!dbUser.lastLogin || Date.now() - dbUser.lastLogin.getTime() > ONE_HOUR) {
+    prisma.user.update({
+      where: { id: dbUser.id },
+      data: { lastLogin: new Date() },
+      select: { id: true },
+    }).catch(() => {/* fire-and-forget */})
+  }
 
   return {
     user: {

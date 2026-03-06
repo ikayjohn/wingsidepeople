@@ -22,7 +22,7 @@ export function hasAnyRole(role: string | null | undefined, allowedRoles: UserRo
 }
 
 export function canAccessAdminArea(role: string | null | undefined) {
-  return hasAnyRole(role, ["admin", "super_admin"])
+  return hasAnyRole(role, ["manager", "hr", "admin", "super_admin"])
 }
 
 export function canAccessAdminSection(
@@ -32,8 +32,22 @@ export function canAccessAdminSection(
   const normalized = normalizeRole(role)
   const byRole: Record<UserRole, AdminSection[]> = {
     employee: [],
-    manager: [],
-    hr: [],
+    manager: [
+      "dashboard",
+      "approvals",
+      "leave_requests",
+    ],
+    hr: [
+      "dashboard",
+      "approvals",
+      "announcements",
+      "handbook",
+      "policies",
+      "documents",
+      "onboarding",
+      "events",
+      "leave_requests",
+    ],
     admin: [
       "dashboard",
       "approvals",

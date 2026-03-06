@@ -1,7 +1,5 @@
 import { prisma } from "@/lib/prisma"
 
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
-
 export function getClientIp(req?: Request | null) {
   if (!req) return null
   const forwardedFor = req.headers.get("x-forwarded-for")
@@ -22,23 +20,6 @@ export function isIpAllowed(ip: string | null, allowlistRaw: string | undefined)
     .filter(Boolean)
 
   return allowlist.includes(ip)
-}
-
-export function checkRateLimit(key: string, max: number, windowMs: number) {
-  const now = Date.now()
-  const entry = rateLimitStore.get(key)
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs })
-    return { allowed: true, remaining: max - 1, resetAt: now + windowMs }
-  }
-
-  if (entry.count >= max) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt }
-  }
-
-  entry.count += 1
-  return { allowed: true, remaining: max - entry.count, resetAt: entry.resetAt }
 }
 
 export function getRateLimitRetryAfter(resetAt: number) {

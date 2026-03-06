@@ -32,6 +32,7 @@ export default async function DashboardPage() {
     prisma.announcement.findMany({
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }],
       take: 6,
+      select: { id: true, title: true, pinned: true, publishedAt: true },
     }),
     prisma.employeeChecklist.findMany({
       where: { userId: session.user.id },
@@ -45,11 +46,13 @@ export default async function DashboardPage() {
       where: { startDate: { gte: new Date() } },
       orderBy: { startDate: "asc" },
       take: 6,
+      select: { id: true, title: true, startDate: true },
     }),
     prisma.policy.findMany({
       where: { status: "published" },
       orderBy: { updatedAt: "desc" },
       take: 6,
+      select: { id: true, title: true, updatedAt: true },
     }),
     prisma.recognition.findMany({
       where: { isPublic: true },
