@@ -2,6 +2,18 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/admin-auth"
 
+type ChecklistProgressItem = {
+  completed: boolean
+}
+
+type ChecklistWithRelations = {
+  id: string
+  assignedAt: Date
+  user: { id: string; name: string | null; email: string }
+  template: { id: string; title: string }
+  progress: ChecklistProgressItem[]
+}
+
 export async function GET(req: Request) {
   const { error } = await requireAdmin(req)
   if (error) return error
@@ -15,9 +27,9 @@ export async function GET(req: Request) {
     orderBy: { assignedAt: "desc" },
   })
 
-  const result = checklists.map((c) => {
+  const result = (checklists as ChecklistWithRelations[]).map((c: ChecklistWithRelations) => {
     const total = c.progress.length
-    const completed = c.progress.filter((p) => p.completed).length
+    const completed = c.progress.filter((p: ChecklistProgressItem) => p.completed).length
     return {
       id: c.id,
       user: c.user,
