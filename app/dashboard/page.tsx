@@ -4,6 +4,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { daysUntil, isSameMonthDay, nextBirthdayDate } from "@/lib/birthday-utils"
 import { canAccessAdminArea } from "@/lib/rbac"
+import { getMissingProfileFields } from "@/lib/profile-completion"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -324,44 +325,4 @@ function QuickLink({ href, label }: { href: string; label: string }) {
       {label}
     </Link>
   )
-}
-
-function hasValue(value: string | Date | null | undefined) {
-  if (!value) return false
-  if (value instanceof Date) return true
-  return value.trim().length > 0
-}
-
-function getMissingProfileFields(profile: {
-  employeeId: string | null
-  gender: string | null
-  phone: string | null
-  address: string | null
-  department: string | null
-  position: string | null
-  employmentType: string | null
-  workLocation: string | null
-  employmentStartDate: Date | null
-  emergencyContact: string | null
-  emergencyPhone: string | null
-  birthday: Date | null
-} | null) {
-  if (!profile) return []
-
-  const checks: Array<{ label: string; valid: boolean }> = [
-    { label: "employee ID", valid: hasValue(profile.employeeId) },
-    { label: "gender", valid: hasValue(profile.gender) },
-    { label: "phone", valid: hasValue(profile.phone) },
-    { label: "address", valid: hasValue(profile.address) },
-    { label: "department", valid: hasValue(profile.department) },
-    { label: "position", valid: hasValue(profile.position) },
-    { label: "employment type", valid: hasValue(profile.employmentType) },
-    { label: "work location", valid: hasValue(profile.workLocation) },
-    { label: "employment start date", valid: hasValue(profile.employmentStartDate) },
-    { label: "emergency contact", valid: hasValue(profile.emergencyContact) },
-    { label: "emergency phone", valid: hasValue(profile.emergencyPhone) },
-    { label: "birthday", valid: hasValue(profile.birthday) },
-  ]
-
-  return checks.filter((item) => !item.valid).map((item) => item.label)
 }

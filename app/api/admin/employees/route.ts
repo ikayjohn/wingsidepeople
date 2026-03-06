@@ -24,8 +24,9 @@ export async function GET(req: Request) {
       position: true,
       workLocation: true,
       status: true,
+      createdAt: true,
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
   })
 
   return NextResponse.json(employees)

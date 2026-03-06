@@ -1,215 +1,120 @@
 # Wingside Employees Portal
 
-An internal portal for Wingside employees to access the employee handbook, company policies, announcements, and documents.
-
-Self-hosted internal portal with first-party auth and content management.
+Internal portal for Wingside staff to access announcements, handbook, policies, documents, onboarding, leave/requests, calendar events, and recognition.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16 (App Router)
-- **Styling**: Tailwind CSS
-- **Authentication**: Supabase Auth
-- **Database**: PostgreSQL with Prisma ORM
-- **Rich Text Editor**: TipTap
-- **File Storage**: Local filesystem
-- **Hosting**: Hostinger VPS with Docker
+- Next.js 16 (App Router)
+- Tailwind CSS
+- Supabase Auth
+- PostgreSQL (Supabase) + Prisma ORM
+- TipTap rich text editor
+- Local filesystem uploads (`/uploads`)
 
-## Features
+## Current Features
 
-- ✅ Email-based authentication (restricted to @wingside.ng)
-- ✅ User registration with email domain validation
-- ✅ Protected routes (dashboard, handbook, policies, announcements, documents)
-- ✅ Responsive navigation
-- ✅ Role-based access control
-- ✅ Self-contained content management (database-driven)
-- ✅ Rich text editing for handbook, policies, and announcements
-- ✅ File upload for documents (local storage)
-- ✅ Categorized policies and documents
-- ✅ Admin panel for content management
-- ✅ Search with content-aware results and type filters
-- ✅ Policy workflow states + read receipts
-- ✅ Onboarding checklist automation
-- ✅ Calendar/events with RSVP support
-- ✅ Document version history
+- Staff registration with domain restriction (`@wingside.ng`)
+- Admin approval workflow before account activation
+- Role-based admin panel navigation and access
+- Login and protected routes
+- Password reset flow (forgot/reset)
+- Employee profile management (including birthday and completion prompt)
+- Handbook, policies, announcements, and document management
+- Document versioning and safer upload validation
+- Leave/HR requests workflow
+- Events + RSVP
+- Notifications and directory
+- Health endpoint (`/api/health`) for uptime checks
+- CI workflow (lint + build on push/PR)
 
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 20+
-- Supabase project (Postgres)
-- A code editor (VS Code recommended)
+- A Supabase project
 
-### Installation
+## Environment Setup
 
-1. **Navigate to the project:**
-   ```bash
-   cd wingside-portal
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-
-    Edit `.env` and configure the following variables:
-    ```env
-    DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
-    DIRECT_DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
-    NEXT_PUBLIC_SUPABASE_URL="https://[PROJECT-REF].supabase.co"
-    NEXT_PUBLIC_SUPABASE_ANON_KEY="[SUPABASE-ANON-KEY]"
-    SUPABASE_SERVICE_ROLE_KEY="[SUPABASE-SERVICE-ROLE-KEY]"
-   
-    CRON_SECRET="change_me"
-    ADMIN_IP_ALLOWLIST=""
-   ```
-
-4. **Run Prisma migrations:**
-   ```bash
-   npx prisma migrate deploy
-   ```
-
-5. **Generate Prisma client:**
-   ```bash
-   npx prisma generate
-   ```
-
- 6. **Start the development server:**
-    ```bash
-    npm run dev
-    ```
-
-  7. **Open your browser:**
-    Navigate to [http://localhost:3001](http://localhost:3001)
-
-## Project Structure
-
-```
-wingside-portal/
-├── app/
-│   ├── api/
-│   │   └── auth/
-│   ├── dashboard/
-│   ├── handbook/
-│   ├── policies/
-│   ├── announcements/
-│   ├── documents/
-│   ├── login/
-│   ├── register/
-│   ├── layout.tsx
-│   └── page.tsx
-├── components/
-│   ├── Navbar.tsx
-│   └── SessionProvider.tsx
-├── lib/
-│   ├── auth.ts
-│   └── prisma.ts
-├── prisma/
-│   └── schema.prisma
-├── docker-compose.yml
-├── Dockerfile
-└── proxy.ts
-```
-
-## Database Schema
-
-### Users Table
-- `id`: Unique user identifier
-- `email`: User email (must end with @wingside.ng)
-- `password`: Hashed password
-- `name`: User's full name
-- `role`: User role (employee/admin)
-- `emailVerified`: Email verification timestamp
-- `createdAt`: Account creation date
-- `lastLogin`: Last login timestamp
-
-## Deployment to Hostinger VPS
-
-### Using Docker Compose (Recommended)
-
-1. **Build and start all services:**
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **View logs:**
-   ```bash
-   docker-compose logs -f
-   ```
-
-3. **Stop services:**
-   ```bash
-   docker-compose down
-   ```
-
-## Development Commands
+1. Copy env template:
 
 ```bash
-# Development server
-npm run dev
+cp .env.example .env
+```
 
-# Build for production
-npm run build
+2. Fill `.env` values:
 
-# Start production server
-npm start
+```env
+DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
+DIRECT_DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require"
+NEXT_PUBLIC_SUPABASE_URL="https://[PROJECT-REF].supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="[SUPABASE-ANON-KEY]"
+SUPABASE_SERVICE_ROLE_KEY="[SUPABASE-SERVICE-ROLE-KEY]"
+CRON_SECRET="change-me"
+ADMIN_IP_ALLOWLIST=""
+```
 
-# Run database migrations
-npx prisma migrate dev
+## Run Locally
 
-# Generate Prisma client
+```bash
+npm install
+npx prisma migrate deploy
 npx prisma generate
-
-# View database in Prisma Studio
-npx prisma studio
+npm run dev
 ```
 
-## Content Management
+Open: `http://localhost:3001`
 
-All content management is built into the admin panel:
-- `/admin/announcements`
-- `/admin/handbook`
-- `/admin/policies`
-- `/admin/documents`
+## Admin Approval Flow
 
-## Troubleshooting
+1. Staff signs up via `/register`
+2. Account is created with `status = pending_approval`
+3. Admin reviews at `/admin/employees`
+4. Admin approves -> `status = active` (user can log in)
 
-### Database Connection Issues
+## Password Reset Flow
+
+1. User clicks `Forgot password?` on `/login`
+2. Submit email on `/forgot-password`
+3. User receives reset link and lands on `/reset-password`
+4. User sets new password
+
+## Important Routes
+
+- Staff:
+  - `/dashboard`
+  - `/profile`
+  - `/handbook`
+  - `/policies`
+  - `/documents`
+  - `/leave`
+  - `/calendar`
+- Admin:
+  - `/admin`
+  - `/admin/employees` (approvals)
+  - `/admin/announcements`
+  - `/admin/handbook`
+  - `/admin/policies`
+  - `/admin/documents`
+  - `/admin/onboarding`
+  - `/admin/events`
+  - `/admin/leave-requests`
+- Ops:
+  - `/api/health`
+
+## Scripts
 
 ```bash
-# Check if PostgreSQL is running
-docker-compose ps
-
-# View PostgreSQL logs
-docker-compose logs postgres
-
-# Restart PostgreSQL
-docker-compose restart postgres
+npm run dev
+npm run lint
+npm run build
+npm run start
 ```
 
-## Security Considerations
+## Security Notes
 
-- ✅ Passwords are hashed with bcrypt
-- ✅ Email domain validation
-- ✅ Protected API routes
-- ✅ SQL injection prevention (Prisma)
-- ✅ XSS protection (Next.js default)
-- ⚠️ Set up HTTPS for production
-- ⚠️ Configure rate limiting
-
-## Future Enhancements
-
-- [ ] Email verification for registration
-- [ ] Password reset functionality
-- [ ] Role-based admin panel
-- [ ] File upload handling
-- [ ] Advanced search with filters
-- [ ] Email notifications for announcements
+- Do not commit `.env`
+- Rotate Supabase keys and DB password if exposed
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only
+- Admin API routes enforce admin authorization checks
 
 ## License
 

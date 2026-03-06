@@ -12,6 +12,7 @@ type Employee = {
   position: string | null
   workLocation: string | null
   status: string
+  createdAt: string
 }
 
 export default function AdminEmployeesPage() {
@@ -24,6 +25,10 @@ export default function AdminEmployeesPage() {
   const pendingEmployees = useMemo(
     () => employees.filter((e) => e.status === "pending_approval"),
     [employees]
+  )
+  const urgentPendingCount = useMemo(
+    () => pendingEmployees.filter((e) => getPendingAgeDays(e.createdAt) >= 3).length,
+    [pendingEmployees]
   )
 
   async function loadEmployees() {
@@ -90,6 +95,9 @@ export default function AdminEmployeesPage() {
       <section className="panel overflow-hidden">
         <div className="border-b border-gray-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-gray-900">Pending Approvals ({pendingEmployees.length})</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            Urgent (3+ days waiting): {urgentPendingCount}
+          </p>
         </div>
 
         {loading ? (
@@ -108,6 +116,9 @@ export default function AdminEmployeesPage() {
                     <p className="text-xs text-gray-500">{employee.email}</p>
                     <p className="mt-1 text-xs text-[#4b5563]">
                       {employee.department || "No department"} • {employee.position || "No position"} • {employee.workLocation || "No location"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Submitted {formatSubmittedDate(employee.createdAt)} ({getPendingAgeDays(employee.createdAt)} day{getPendingAgeDays(employee.createdAt) === 1 ? "" : "s"} ago)
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -138,3 +149,13 @@ export default function AdminEmployeesPage() {
   )
 }
 
+function getPendingAgeDays(createdAt: string) {
+  const created = new Date(createdAt)
+  const now = Date.now()
+  const diffMs = Math.max(0, now - created.getTime())
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+function formatSubmittedDate(createdAt: string) {
+  return new Date(createdAt).toLocaleDateString()
+}

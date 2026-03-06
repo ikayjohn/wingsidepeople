@@ -2,11 +2,61 @@ import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { canAccessAdminArea, canAccessAdminSection } from "@/lib/rbac"
+import { prisma } from "@/lib/prisma"
+import { getMissingProfileFields, type ProfileSnapshot } from "@/lib/profile-completion"
 
 export default async function AdminDashboard() {
   const session = await auth()
   if (!session) redirect("/login")
   if (!canAccessAdminArea(session.user.role)) redirect("/dashboard")
+
+  const [statusCounts, activeProfiles, pendingApprovals] = await Promise.all([
+    prisma.user.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+    prisma.user.findMany({
+      where: { status: "active" },
+      select: {
+        employeeId: true,
+        gender: true,
+        phone: true,
+        address: true,
+        department: true,
+        position: true,
+        employmentType: true,
+        workLocation: true,
+        employmentStartDate: true,
+        emergencyContact: true,
+        emergencyPhone: true,
+        birthday: true,
+      },
+    }),
+    prisma.user.findMany({
+      where: { status: "pending_approval" },
+      select: {
+        id: true,
+        name: true,
+        preferredName: true,
+        email: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+      take: 5,
+    }),
+  ])
+
+  const countByStatus = statusCounts.reduce<Record<string, number>>((acc, item) => {
+    acc[item.status] = item._count._all
+    return acc
+  }, {})
+  const totalUsers = statusCounts.reduce((acc, item) => acc + item._count._all, 0)
+  const activeUsers = countByStatus.active ?? 0
+  const pendingUsers = countByStatus.pending_approval ?? 0
+  const incompleteProfiles = activeProfiles.filter((profile) =>
+    getMissingProfileFields(profile as ProfileSnapshot).length > 0
+  ).length
+  const urgentPendingUsers = pendingApprovals.filter((u) => pendingAgeDays(u.createdAt) >= 3).length
 
   const cards = [
     {
@@ -142,6 +192,42 @@ export default async function AdminDashboard() {
         </p>
       </div>
 
+      <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total users" value={totalUsers} tone="slate" />
+        <StatCard label="Active users" value={activeUsers} tone="green" />
+        <StatCard label="Pending approvals" value={pendingUsers} tone={pendingUsers > 0 ? "amber" : "slate"} />
+        <StatCard label="Incomplete profiles" value={incompleteProfiles} tone={incompleteProfiles > 0 ? "rose" : "slate"} />
+      </section>
+
+      {pendingApprovals.length > 0 && (
+        <section className="panel mb-6 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+            <h2 className="text-lg font-semibold text-gray-900">Approval Queue</h2>
+            <Link href="/admin/employees" className="text-sm font-medium text-brand-brown hover:text-brand-brown-light">
+              Open approvals
+            </Link>
+          </div>
+          <div className="px-5 py-4">
+            <p className="mb-3 text-xs text-gray-500">Urgent (3+ days waiting): {urgentPendingUsers}</p>
+            <ul className="space-y-2">
+              {pendingApprovals.map((user) => (
+                <li key={user.id} className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {user.preferredName || user.name || user.email}
+                    </p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                  <span className="text-xs font-semibold text-brand-brown">
+                    {pendingAgeDays(user.createdAt)}d
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {visibleCards.map((card) => (
           <Link key={card.href} href={card.href} className="panel block overflow-hidden p-6">
@@ -159,6 +245,35 @@ export default async function AdminDashboard() {
           </Link>
         ))}
       </div>
+    </div>
+  )
+}
+
+function pendingAgeDays(createdAt: Date) {
+  const diffMs = Math.max(0, Date.now() - createdAt.getTime())
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone: "slate" | "green" | "amber" | "rose"
+}) {
+  const tones = {
+    slate: "border-gray-200 bg-white text-gray-900",
+    green: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-900",
+    rose: "border-rose-200 bg-rose-50 text-rose-900",
+  } as const
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${tones[tone]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{label}</p>
+      <p className="mt-1 text-2xl font-semibold">{value}</p>
     </div>
   )
 }
