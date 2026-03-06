@@ -61,7 +61,10 @@ export default async function AdminDashboard() {
     acc[item.status] = item._count._all
     return acc
   }, {} as Record<string, number>)
-  const totalUsers = statusCounts.reduce((acc, item) => acc + item._count._all, 0)
+  const totalUsers = statusCounts.reduce(
+    (acc: number, item: { _count: { _all: number } }) => acc + item._count._all,
+    0
+  )
   const activeUsers = countByStatus.active ?? 0
   const pendingUsers = countByStatus.pending_approval ?? 0
   const incompleteProfiles = activeProfiles.filter((profile) =>
