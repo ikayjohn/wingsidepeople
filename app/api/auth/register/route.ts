@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { checkRateLimitPersistent, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
 import { getSupabaseAdminClient } from "@/lib/supabase/admin"
-import { Prisma } from "@prisma/client"
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client"
 
 const registerSchema = z.object({
   email: z.string().email().refine((email) => email.endsWith("@wingside.ng"), {
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
             },
           })
         } catch (dbError) {
-          if (dbError instanceof Prisma.PrismaClientKnownRequestError && dbError.code === "P2002") {
+          if (dbError instanceof PrismaClientKnownRequestError && dbError.code === "P2002") {
             return NextResponse.json(
               { error: "Unable to create account. Please try again or contact support." },
               { status: 400 }
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
         }
       }
 
-      if (dbError instanceof Prisma.PrismaClientKnownRequestError && dbError.code === "P2002") {
+      if (dbError instanceof PrismaClientKnownRequestError && dbError.code === "P2002") {
         return NextResponse.json(
           { error: "Unable to create account. Please try again or contact support." },
           { status: 400 }

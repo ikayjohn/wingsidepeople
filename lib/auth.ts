@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client"
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client"
 import { normalizeRole } from "@/lib/rbac"
 import type { AppSession } from "@/lib/session"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
@@ -46,7 +46,7 @@ export async function auth(): Promise<AppSession | null> {
       })
     } catch (error) {
       const isUniqueConflict =
-        error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
+        error instanceof PrismaClientKnownRequestError && error.code === "P2002"
       if (!isUniqueConflict) throw error
 
       // If another parallel request just created this user, re-read it.
