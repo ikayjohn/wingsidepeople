@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 
@@ -19,15 +18,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  type EventWithMyRsvp = Prisma.EventGetPayload<{
-    include: {
-      rsvps: {
-        select: { status: true; updatedAt: true }
-      }
-    }
-  }>
+  type EventWithMyRsvp = {
+    rsvps: { status: string; updatedAt: Date }[]
+  } & Record<string, unknown>
 
-  const events: EventWithMyRsvp[] = await prisma.event.findMany({
+  const events = (await prisma.event.findMany({
     where,
     include: {
       rsvps: {
@@ -37,7 +32,7 @@ export async function GET(req: NextRequest) {
       },
     },
     orderBy: { startDate: "asc" },
-  })
+  })) as EventWithMyRsvp[]
 
   return NextResponse.json(
     events.map(({ rsvps, ...event }) => ({
