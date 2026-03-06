@@ -5,6 +5,7 @@ import { writeFile, mkdir, unlink } from "fs/promises"
 import { buildStoredFilenameFromMime, isAllowedDocumentMime, sanitizeOriginalFilename, uploadsDir } from "@/lib/document-storage"
 import path from "path"
 import { logAudit } from "@/lib/audit"
+import { Prisma } from "@prisma/client"
 
 const VALID_CATEGORIES = ["forms", "templates", "guides", "policies", "benefits", "training", "other"]
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Document not found for version update" }, { status: 404 })
       }
 
-      document = await prisma.$transaction(async (tx) => {
+      document = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         await tx.documentVersion.create({
           data: {
             documentId: existing.id,
