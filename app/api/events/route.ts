@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 
@@ -18,7 +19,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const events = await prisma.event.findMany({
+  type EventWithMyRsvp = Prisma.EventGetPayload<{
+    include: {
+      rsvps: {
+        select: { status: true; updatedAt: true }
+      }
+    }
+  }>
+
+  const events: EventWithMyRsvp[] = await prisma.event.findMany({
     where,
     include: {
       rsvps: {
