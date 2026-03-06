@@ -98,7 +98,7 @@ export async function POST(req: Request) {
       take: 50,
     })
     await Promise.all(
-      reviewers.map((reviewer) =>
+      reviewers.map((reviewer: { id: string }) =>
         createNotification({
           userId: reviewer.id,
           type: "leave_request",
