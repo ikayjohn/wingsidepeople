@@ -13,12 +13,6 @@ type PostLoginStatusResponse = {
   role?: string | null
 }
 
-type AccountStatusResponse = {
-  exists?: boolean
-  status?: string
-  hasLegacyPassword?: boolean
-}
-
 async function resolvePostLoginOutcome() {
   const response = await fetch("/api/auth/post-login-status", { cache: "no-store" })
   if (!response.ok) return { path: "/dashboard" }
@@ -48,16 +42,6 @@ export default function LoginPage() {
     : "")
   const [loading, setLoading] = useState(false)
 
-  async function getAccountStatus(email: string) {
-    const response = await fetch("/api/auth/account-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    })
-    if (!response.ok) return null
-    return (await response.json()) as AccountStatusResponse
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -71,27 +55,6 @@ export default function LoginPage() {
       })
 
       if (error) {
-        const accountStatus = await getAccountStatus(email)
-        if (accountStatus?.exists) {
-          if (accountStatus.status === "pending_approval") {
-            setError("Your account is pending admin approval.")
-            return
-          }
-          if (accountStatus.status === "rejected") {
-            setError("Your account registration was rejected. Contact HR/admin.")
-            return
-          }
-          if (accountStatus.status && accountStatus.status !== "active") {
-            setError("Your account is not active. Contact admin.")
-            return
-          }
-        }
-
-        if (accountStatus?.exists && !accountStatus.hasLegacyPassword) {
-          setError("Invalid email or password")
-          return
-        }
-
         const migrateResponse = await fetch("/api/auth/migrate-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -99,10 +62,7 @@ export default function LoginPage() {
         })
 
         if (migrateResponse.ok) {
-          const migrateResult = (await migrateResponse.json()) as {
-            migrated?: boolean
-            reason?: string
-          }
+          const migrateResult = (await migrateResponse.json()) as { migrated?: boolean }
           if (migrateResult.migrated) {
             const retry = await supabase.auth.signInWithPassword({ email, password })
             if (!retry.error) {
@@ -117,18 +77,7 @@ export default function LoginPage() {
               return
             }
           }
-
-          if (migrateResult.reason === "no_legacy_user") {
-            setError("Account not found. Please register first.")
-            return
-          }
         }
-
-        if (accountStatus?.exists && accountStatus.status === "active") {
-          setError("Invalid email or password")
-          return
-        }
-
         setError("Invalid email or password")
       } else {
         const outcome = await resolvePostLoginOutcome()

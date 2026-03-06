@@ -33,12 +33,28 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const { error } = await requireAdmin(req)
+  const { error, session } = await requireAdmin(req)
   if (error) return error
 
   try {
     const body = await req.json()
     const data = updateEmployeeSchema.parse(body)
+    const target = await prisma.user.findUnique({
+      where: { id: data.userId },
+      select: { id: true, role: true },
+    })
+    if (!target) {
+      return NextResponse.json({ error: "Employee not found" }, { status: 404 })
+    }
+
+    const isProtectedRole = target.role === "admin" || target.role === "super_admin"
+    if (isProtectedRole) {
+      return NextResponse.json({ error: "Status changes for admin accounts are blocked." }, { status: 403 })
+    }
+
+    if (data.userId === session!.user.id && data.status !== "active") {
+      return NextResponse.json({ error: "You cannot deactivate your own account." }, { status: 400 })
+    }
 
     const user = await prisma.user.update({
       where: { id: data.userId },

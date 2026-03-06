@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { prisma } from "@/lib/prisma"
-import { checkRateLimit, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
+import { checkRateLimitPersistent, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
 
 const schema = z.object({
   email: z.string().email(),
@@ -10,7 +9,13 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(req) || "unknown"
-    const rate = checkRateLimit(`account-status:${ip}`, 40, 15 * 60 * 1000)
+    const rate = await checkRateLimitPersistent({
+      scope: "account_status",
+      key: `account-status:${ip}`,
+      max: 40,
+      windowMs: 15 * 60 * 1000,
+      ip,
+    })
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "Too many attempts. Please try again later." },
@@ -22,29 +27,9 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { email } = schema.parse(body)
-    const normalizedEmail = email.toLowerCase()
-
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: {
-        id: true,
-        status: true,
-        role: true,
-        password: true,
-      },
-    })
-
-    if (!user) {
-      return NextResponse.json({ exists: false })
-    }
-
-    return NextResponse.json({
-      exists: true,
-      status: user.status,
-      role: user.role,
-      hasLegacyPassword: !!user.password,
-    })
+    schema.parse(body)
+    // Intentionally generic to avoid leaking account existence/state pre-authentication.
+    return NextResponse.json({ ok: true })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 })
@@ -52,4 +37,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unable to determine account status." }, { status: 500 })
   }
 }
-

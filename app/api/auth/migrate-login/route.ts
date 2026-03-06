@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import { checkRateLimit, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
+import { checkRateLimitPersistent, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
 import { getSupabaseAdminClient } from "@/lib/supabase/admin"
 
 const migrateLoginSchema = z.object({
@@ -13,7 +13,13 @@ const migrateLoginSchema = z.object({
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(req) || "unknown"
-    const rate = checkRateLimit(`migrate-login:${ip}`, 25, 15 * 60 * 1000)
+    const rate = await checkRateLimitPersistent({
+      scope: "migrate_login",
+      key: `migrate-login:${ip}`,
+      max: 25,
+      windowMs: 15 * 60 * 1000,
+      ip,
+    })
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "Too many login attempts. Please try again later." },
@@ -33,18 +39,12 @@ export async function POST(req: Request) {
       select: { email: true, name: true, password: true },
     })
 
-    if (!user) {
-      return NextResponse.json({ migrated: false, reason: "no_legacy_user" })
-    }
+    if (!user) return NextResponse.json({ migrated: false })
 
-    if (!user?.password) {
-      return NextResponse.json({ migrated: false, reason: "no_legacy_password" })
-    }
+    if (!user?.password) return NextResponse.json({ migrated: false })
 
     const isMatch = await bcrypt.compare(password, user.password)
-    if (!isMatch) {
-      return NextResponse.json({ migrated: false, reason: "invalid_legacy_password" })
-    }
+    if (!isMatch) return NextResponse.json({ migrated: false })
 
     let error: { message: string } | null = null
     try {
@@ -71,16 +71,16 @@ export async function POST(req: Request) {
 
       if (!isAlreadyProvisioned) {
         console.error("migrate-login non-retryable createUser error:", error.message)
-        return NextResponse.json({ migrated: false, reason: "provision_failed" })
+        return NextResponse.json({ migrated: false })
       }
     }
 
-    return NextResponse.json({ migrated: true, reason: "migrated_or_exists" })
+    return NextResponse.json({ migrated: true })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 })
     }
     console.error("migrate-login unexpected error:", error)
-    return NextResponse.json({ migrated: false, reason: "unexpected" })
+    return NextResponse.json({ migrated: false })
   }
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { z } from "zod"
 import { assignOnboardingChecklists } from "@/lib/onboarding"
+import { Prisma } from "@prisma/client"
 
 const profileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -131,7 +132,7 @@ export async function PUT(req: Request) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0].message }, { status: 400 })
     }
-    if (err instanceof Error && err.message.includes("Unique constraint")) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return NextResponse.json({ error: "Employee ID is already in use" }, { status: 409 })
     }
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@supabase/supabase-js"
-import { checkRateLimit, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
+import { checkRateLimitPersistent, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
 
 const schema = z.object({
   email: z.string().email(),
@@ -10,7 +10,13 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(req) || "unknown"
-    const rate = checkRateLimit(`forgot-password:${ip}`, 20, 15 * 60 * 1000)
+    const rate = await checkRateLimitPersistent({
+      scope: "forgot_password",
+      key: `forgot-password:${ip}`,
+      max: 20,
+      windowMs: 15 * 60 * 1000,
+      ip,
+    })
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "Too many attempts. Please try again later." },
@@ -47,4 +53,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unable to process request." }, { status: 500 })
   }
 }
-

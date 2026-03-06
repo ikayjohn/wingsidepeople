@@ -13,6 +13,9 @@ const protectedPaths = [
   "/notifications",
   "/onboarding",
   "/calendar",
+  "/leave",
+  "/directory",
+  "/recognition",
 ]
 
 export default async function proxy(req: NextRequest) {

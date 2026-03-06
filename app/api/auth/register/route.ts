@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { checkRateLimit, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
+import { checkRateLimitPersistent, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
 import { getSupabaseAdminClient } from "@/lib/supabase/admin"
+import { Prisma } from "@prisma/client"
 
 const registerSchema = z.object({
   email: z.string().email().refine((email) => email.endsWith("@wingside.ng"), {
@@ -21,7 +22,13 @@ const registerSchema = z.object({
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(req) || "unknown"
-    const rate = checkRateLimit(`register:${ip}`, 10, 15 * 60 * 1000)
+    const rate = await checkRateLimitPersistent({
+      scope: "register",
+      key: `register:${ip}`,
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+      ip,
+    })
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "Too many registration attempts. Please try again later." },
@@ -60,7 +67,7 @@ export async function POST(req: Request) {
     }
 
     const supabaseAdmin = getSupabaseAdminClient()
-    const { error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: normalizedEmail,
       password,
       email_confirm: true,
@@ -68,25 +75,83 @@ export async function POST(req: Request) {
     })
 
     if (authError) {
+      const message = authError.message.toLowerCase()
+      const isAlreadyProvisioned =
+        message.includes("already") ||
+        message.includes("exists") ||
+        message.includes("registered") ||
+        message.includes("duplicate")
+
+      if (isAlreadyProvisioned) {
+        // Recover from a previous partial provisioning where auth user exists but app user row does not.
+        try {
+          await prisma.user.create({
+            data: {
+              email: normalizedEmail,
+              name,
+              employeeId,
+              phone,
+              department,
+              position,
+              employmentType,
+              workLocation,
+              status: "pending_approval",
+            },
+          })
+        } catch (dbError) {
+          if (dbError instanceof Prisma.PrismaClientKnownRequestError && dbError.code === "P2002") {
+            return NextResponse.json(
+              { error: "Unable to create account. Please try again or contact support." },
+              { status: 400 }
+            )
+          }
+          throw dbError
+        }
+
+        return NextResponse.json(
+          { message: "Account created successfully. Awaiting admin approval." },
+          { status: 201 }
+        )
+      }
+
       return NextResponse.json(
         { error: "Unable to create account. Please try again or contact support." },
         { status: 400 }
       )
     }
 
-    await prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        name,
-        employeeId,
-        phone,
-        department,
-        position,
-        employmentType,
-        workLocation,
-        status: "pending_approval",
-      },
-    })
+    try {
+      await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          name,
+          employeeId,
+          phone,
+          department,
+          position,
+          employmentType,
+          workLocation,
+          status: "pending_approval",
+        },
+      })
+    } catch (dbError) {
+      const authUserId = authData.user?.id
+      if (authUserId) {
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(authUserId)
+        } catch {
+          // Best effort rollback to avoid orphaned auth records.
+        }
+      }
+
+      if (dbError instanceof Prisma.PrismaClientKnownRequestError && dbError.code === "P2002") {
+        return NextResponse.json(
+          { error: "Unable to create account. Please try again or contact support." },
+          { status: 400 }
+        )
+      }
+      throw dbError
+    }
 
     return NextResponse.json(
       { message: "Account created successfully. Awaiting admin approval." },

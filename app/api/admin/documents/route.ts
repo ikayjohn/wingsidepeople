@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/admin-auth"
-import { writeFile, mkdir } from "fs/promises"
+import { writeFile, mkdir, unlink } from "fs/promises"
 import { buildStoredFilenameFromMime, isAllowedDocumentMime, sanitizeOriginalFilename, uploadsDir } from "@/lib/document-storage"
 import path from "path"
 import { logAudit } from "@/lib/audit"
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
   const { error, session, ip } = await requireAdmin(req)
   if (error) return error
 
+  let writtenFilePath: string | null = null
   try {
     const formData = await req.formData()
     const title = formData.get("title") as string
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     await writeFile(filepath, buffer)
+    writtenFilePath = filepath
 
     let document
     if (documentId) {
@@ -163,6 +165,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(document, { status: 201 })
   } catch (err) {
+    if (writtenFilePath) {
+      try {
+        await unlink(writtenFilePath)
+      } catch {
+        // best-effort cleanup for failed metadata writes
+      }
+    }
     console.error("Upload error:", err)
     return NextResponse.json({ error: "Failed to upload document" }, { status: 500 })
   }

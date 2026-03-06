@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/prisma"
+
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
 
 export function getClientIp(req?: Request | null) {
@@ -41,4 +43,53 @@ export function checkRateLimit(key: string, max: number, windowMs: number) {
 
 export function getRateLimitRetryAfter(resetAt: number) {
   return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))
+}
+
+export async function checkRateLimitPersistent(params: {
+  scope: string
+  key: string
+  max: number
+  windowMs: number
+  ip?: string | null
+}) {
+  const now = new Date()
+  const windowStart = new Date(now.getTime() - params.windowMs)
+
+  const [count, oldest] = await Promise.all([
+    prisma.auditLog.count({
+      where: {
+        resource: "rate_limit",
+        action: params.scope,
+        resourceId: params.key,
+        createdAt: { gte: windowStart },
+      },
+    }),
+    prisma.auditLog.findFirst({
+      where: {
+        resource: "rate_limit",
+        action: params.scope,
+        resourceId: params.key,
+        createdAt: { gte: windowStart },
+      },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    }),
+  ])
+
+  if (count >= params.max) {
+    const resetAt = (oldest?.createdAt?.getTime() || now.getTime()) + params.windowMs
+    return { allowed: false, remaining: 0, resetAt }
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      action: params.scope,
+      resource: "rate_limit",
+      resourceId: params.key,
+      ip: params.ip || null,
+    },
+  })
+
+  const remaining = Math.max(0, params.max - (count + 1))
+  return { allowed: true, remaining, resetAt: now.getTime() + params.windowMs }
 }

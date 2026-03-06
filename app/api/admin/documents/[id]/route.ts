@@ -43,22 +43,29 @@ export async function DELETE(
   try {
     const { id } = await params
     const document = await prisma.document.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        versions: {
+          select: { filepath: true },
+        },
+      },
     })
 
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 })
     }
 
-    const { currentPath, legacyPath } = resolveStoredFilePaths(document.filepath)
-
-    try {
-      await unlink(currentPath)
-    } catch {
+    const allFilepaths = Array.from(new Set([document.filepath, ...document.versions.map((v) => v.filepath)]))
+    for (const file of allFilepaths) {
+      const { currentPath, legacyPath } = resolveStoredFilePaths(file)
       try {
-        await unlink(legacyPath)
-      } catch (err) {
-        console.error("Failed to delete file:", err)
+        await unlink(currentPath)
+      } catch {
+        try {
+          await unlink(legacyPath)
+        } catch (err) {
+          console.error("Failed to delete file:", err)
+        }
       }
     }
 
