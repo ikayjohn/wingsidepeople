@@ -48,7 +48,6 @@ DIRECT_DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@db.[PROJECT-
 NEXT_PUBLIC_SUPABASE_URL="https://[PROJECT-REF].supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="[SUPABASE-ANON-KEY]"
 SUPABASE_SERVICE_ROLE_KEY="[SUPABASE-SERVICE-ROLE-KEY]"
-CRON_SECRET="change-me"
 ADMIN_IP_ALLOWLIST=""
 ```
 
@@ -99,9 +98,6 @@ Open: `http://localhost:3001`
   - `/admin/leave-requests`
 - Ops:
   - `/api/health`
-  - `/api/cron/approval-reminders` (protected by `CRON_SECRET`)
-  - `/api/cron/birthday-notifications` (protected by `CRON_SECRET`)
-  - `/api/cron/event-reminders` (protected by `CRON_SECRET`)
 
 ## Scripts
 
