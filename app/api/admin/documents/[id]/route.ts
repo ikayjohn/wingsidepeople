@@ -55,7 +55,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Document not found" }, { status: 404 })
     }
 
-    const allFilepaths = Array.from(new Set([document.filepath, ...document.versions.map((v) => v.filepath)]))
+    const allFilepaths = Array.from(
+      new Set([document.filepath, ...document.versions.map((v: { filepath: string }) => v.filepath)])
+    )
     for (const file of allFilepaths) {
       const { currentPath, legacyPath } = resolveStoredFilePaths(file)
       try {
