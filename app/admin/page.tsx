@@ -57,10 +57,10 @@ export default async function AdminDashboard() {
     }),
   ])
 
-  const countByStatus = statusCounts.reduce<Record<string, number>>((acc, item) => {
+  const countByStatus = statusCounts.reduce((acc: Record<string, number>, item: { status: string; _count: { _all: number } }) => {
     acc[item.status] = item._count._all
     return acc
-  }, {})
+  }, {} as Record<string, number>)
   const totalUsers = statusCounts.reduce((acc, item) => acc + item._count._all, 0)
   const activeUsers = countByStatus.active ?? 0
   const pendingUsers = countByStatus.pending_approval ?? 0
