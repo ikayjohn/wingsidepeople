@@ -67,10 +67,10 @@ export default async function AdminDashboard() {
   )
   const activeUsers = countByStatus.active ?? 0
   const pendingUsers = countByStatus.pending_approval ?? 0
-  const incompleteProfiles = activeProfiles.filter((profile) =>
-    getMissingProfileFields(profile as ProfileSnapshot).length > 0
+  const incompleteProfiles = activeProfiles.filter((profile: ProfileSnapshot) =>
+    getMissingProfileFields(profile).length > 0
   ).length
-  const urgentPendingUsers = pendingApprovals.filter((u) => pendingAgeDays(u.createdAt) >= 3).length
+  const urgentPendingUsers = pendingApprovals.filter((u: { createdAt: Date }) => pendingAgeDays(u.createdAt) >= 3).length
 
   const cards = [
     {
