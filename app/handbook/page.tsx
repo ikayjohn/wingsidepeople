@@ -4,11 +4,17 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
 
+type HandbookSectionListItem = {
+  id: string
+  slug: string
+  title: string
+}
+
 export default async function HandbookPage() {
   const session = await auth()
   if (!session) redirect("/login")
 
-  const sections = await prisma.handbookSection.findMany({
+  const sections: HandbookSectionListItem[] = await prisma.handbookSection.findMany({
     orderBy: { order: 'asc' }
   })
 

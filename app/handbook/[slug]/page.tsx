@@ -5,6 +5,12 @@ import RichTextContent from "@/components/RichTextContent"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
 
+type HandbookNavSection = {
+  id: string
+  slug: string
+  title: string
+}
+
 export default async function HandbookSectionPage({ params }: { params: Promise<{ slug: string }> }) {
   const session = await auth()
   if (!session) redirect("/login")
@@ -18,12 +24,12 @@ export default async function HandbookSectionPage({ params }: { params: Promise<
     notFound()
   }
 
-  const allSections = await prisma.handbookSection.findMany({
+  const allSections: HandbookNavSection[] = await prisma.handbookSection.findMany({
     orderBy: { order: 'asc' },
     select: { id: true, slug: true, title: true }
   })
 
-  const currentIndex = allSections.findIndex(s => s.id === section.id)
+  const currentIndex = allSections.findIndex((s: HandbookNavSection) => s.id === section.id)
   const prevSection = currentIndex > 0 ? allSections[currentIndex - 1] : null
   const nextSection = currentIndex < allSections.length - 1 ? allSections[currentIndex + 1] : null
 
