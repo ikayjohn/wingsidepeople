@@ -14,13 +14,26 @@ const categoryLabels: Record<string, string> = {
   other: 'Other',
 }
 
+type PolicyItem = {
+  id: string
+  category: string
+  title: string
+  status: string
+  summary: string | null
+  effectiveDate: Date | null
+}
+
+type PolicyReceipt = {
+  policyId: string
+}
+
 export default async function PoliciesPage() {
   const session = await auth()
   if (!session) redirect("/login")
 
   const isAdmin = session.user.role === "admin"
 
-  const policies = await prisma.policy.findMany({
+  const policies: PolicyItem[] = await prisma.policy.findMany({
     where: isAdmin ? undefined : { status: "published" },
     orderBy: [
       { category: 'asc' },
@@ -28,13 +41,13 @@ export default async function PoliciesPage() {
     ]
   })
 
-  const receipts = await prisma.policyAcknowledgment.findMany({
+  const receipts: PolicyReceipt[] = await prisma.policyAcknowledgment.findMany({
     where: { userId: session.user.id },
     select: { policyId: true },
   })
-  const acknowledgedPolicyIds = new Set(receipts.map((r) => r.policyId))
+  const acknowledgedPolicyIds = new Set(receipts.map((r: PolicyReceipt) => r.policyId))
 
-  const policiesByCategory = policies.reduce<Record<string, typeof policies>>((acc, policy) => {
+  const policiesByCategory = policies.reduce<Record<string, PolicyItem[]>>((acc: Record<string, PolicyItem[]>, policy: PolicyItem) => {
     const category = policy.category || 'other'
     if (!acc[category]) {
       acc[category] = []
@@ -57,7 +70,7 @@ export default async function PoliciesPage() {
 
           {Object.keys(policiesByCategory).length > 0 ? (
             <div className="space-y-8">
-              {Object.entries(policiesByCategory).map(([category, policies]) => (
+              {Object.entries(policiesByCategory).map(([category, policies]: [string, PolicyItem[]]) => (
                 <div key={category} className="bg-white shadow rounded-lg">
                   <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
                     <h2 className="text-lg font-medium text-gray-900">
@@ -65,7 +78,7 @@ export default async function PoliciesPage() {
                     </h2>
                   </div>
                   <ul className="divide-y divide-gray-200">
-                    {policies.map((policy) => (
+                    {policies.map((policy: PolicyItem) => (
                       <li key={policy.id}>
                         <Link
                           href={`/policies/${policy.id}`}
