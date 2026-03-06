@@ -3,21 +3,23 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
+import { canAccessAdminSection } from "@/lib/rbac"
 
 const navItems = [
-  { name: "Dashboard", href: "/admin" },
-  { name: "Approvals", href: "/admin/employees" },
-  { name: "Announcements", href: "/admin/announcements" },
-  { name: "Handbook", href: "/admin/handbook" },
-  { name: "Policies", href: "/admin/policies" },
-  { name: "Documents", href: "/admin/documents" },
-  { name: "Onboarding", href: "/admin/onboarding" },
-  { name: "Events", href: "/admin/events" },
-  { name: "Leave & Requests", href: "/admin/leave-requests" },
+  { name: "Dashboard", href: "/admin", section: "dashboard" as const },
+  { name: "Approvals", href: "/admin/employees", section: "approvals" as const },
+  { name: "Announcements", href: "/admin/announcements", section: "announcements" as const },
+  { name: "Handbook", href: "/admin/handbook", section: "handbook" as const },
+  { name: "Policies", href: "/admin/policies", section: "policies" as const },
+  { name: "Documents", href: "/admin/documents", section: "documents" as const },
+  { name: "Onboarding", href: "/admin/onboarding", section: "onboarding" as const },
+  { name: "Events", href: "/admin/events", section: "events" as const },
+  { name: "Leave & Requests", href: "/admin/leave-requests", section: "leave_requests" as const },
 ]
 
-export default function AdminShellNav() {
+export default function AdminShellNav({ role }: { role: string }) {
   const pathname = usePathname()
+  const visibleItems = navItems.filter((item) => canAccessAdminSection(role, item.section))
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#e4eaf3] bg-white/90 backdrop-blur-xl">
@@ -46,7 +48,7 @@ export default function AdminShellNav() {
         </div>
 
         <nav className="mt-4 hidden items-center gap-2 overflow-x-auto border-t border-[#edf2f8] pt-4 md:flex">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             return (
               <Link
@@ -65,7 +67,7 @@ export default function AdminShellNav() {
         </nav>
 
         <nav className="mt-3 grid grid-cols-2 gap-2 border-t border-[#edf2f8] pt-3 md:hidden">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             return (
               <Link

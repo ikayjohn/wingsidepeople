@@ -2,23 +2,9 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/admin-auth"
 import { writeFile, mkdir } from "fs/promises"
-import { buildStoredFilename, sanitizeOriginalFilename, uploadsDir } from "@/lib/document-storage"
+import { buildStoredFilenameFromMime, isAllowedDocumentMime, sanitizeOriginalFilename, uploadsDir } from "@/lib/document-storage"
+import path from "path"
 import { logAudit } from "@/lib/audit"
-
-const ALLOWED_MIME_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "text/plain",
-  "text/csv",
-]
 
 const VALID_CATEGORIES = ["forms", "templates", "guides", "policies", "benefits", "training", "other"]
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -55,7 +41,8 @@ export async function POST(req: Request) {
     const title = formData.get("title") as string
     const description = formData.get("description") as string
     const category = formData.get("category") as string
-    const file = formData.get("file") as File
+    const rawFile = formData.get("file")
+    const file = rawFile instanceof File ? rawFile : null
     const documentIdRaw = formData.get("documentId")
     const documentId = typeof documentIdRaw === "string" && documentIdRaw.trim() ? documentIdRaw.trim() : null
 
@@ -71,19 +58,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Title too long (max 200 characters)" }, { status: 400 })
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    if (!isAllowedDocumentMime(file.type)) {
       return NextResponse.json({ error: "File type not allowed. Accepted: PDF, Word, Excel, PowerPoint, images, text, CSV." }, { status: 400 })
     }
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 })
     }
+    if (file.size <= 0) {
+      return NextResponse.json({ error: "Uploaded file is empty" }, { status: 400 })
+    }
 
     const safeOriginalName = sanitizeOriginalFilename(file.name)
-    const filename = buildStoredFilename(file.name)
+    const filename = buildStoredFilenameFromMime(file.type)
 
     await mkdir(uploadsDir, { recursive: true })
-    const filepath = `${uploadsDir}/${filename}`
+    const filepath = path.resolve(uploadsDir, filename)
 
     // Convert file to buffer and save
     const bytes = await file.arrayBuffer()

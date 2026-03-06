@@ -1,9 +1,17 @@
 import Link from "next/link"
+import { auth } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { canAccessAdminArea, canAccessAdminSection } from "@/lib/rbac"
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const session = await auth()
+  if (!session) redirect("/login")
+  if (!canAccessAdminArea(session.user.role)) redirect("/dashboard")
+
   const cards = [
     {
       href: "/admin/employees",
+      section: "approvals" as const,
       title: "Approvals",
       description: "Approve new staff signups",
       iconClass: "bg-violet-100 text-violet-700",
@@ -18,6 +26,7 @@ export default function AdminDashboard() {
     },
     {
       href: "/admin/announcements",
+      section: "announcements" as const,
       title: "Announcements",
       description: "Company news",
       iconClass: "bg-brand-gold-light text-brand-brown",
@@ -32,6 +41,7 @@ export default function AdminDashboard() {
     },
     {
       href: "/admin/handbook",
+      section: "handbook" as const,
       title: "Handbook",
       description: "Employee handbook",
       iconClass: "bg-emerald-100 text-emerald-700",
@@ -46,6 +56,7 @@ export default function AdminDashboard() {
     },
     {
       href: "/admin/policies",
+      section: "policies" as const,
       title: "Policies",
       description: "Company policies",
       iconClass: "bg-amber-100 text-amber-700",
@@ -60,6 +71,7 @@ export default function AdminDashboard() {
     },
     {
       href: "/admin/documents",
+      section: "documents" as const,
       title: "Documents",
       description: "Files and resources",
       iconClass: "bg-sky-100 text-sky-700",
@@ -74,6 +86,7 @@ export default function AdminDashboard() {
     },
     {
       href: "/admin/onboarding",
+      section: "onboarding" as const,
       title: "Onboarding",
       description: "Templates and progress",
       iconClass: "bg-indigo-100 text-indigo-700",
@@ -88,6 +101,7 @@ export default function AdminDashboard() {
     },
     {
       href: "/admin/events",
+      section: "events" as const,
       title: "Events",
       description: "Calendar management",
       iconClass: "bg-rose-100 text-rose-700",
@@ -102,6 +116,7 @@ export default function AdminDashboard() {
     },
     {
       href: "/admin/leave-requests",
+      section: "leave_requests" as const,
       title: "Leave and Requests",
       description: "Review queues",
       iconClass: "bg-cyan-100 text-cyan-700",
@@ -115,6 +130,7 @@ export default function AdminDashboard() {
       ),
     },
   ]
+  const visibleCards = cards.filter((card) => canAccessAdminSection(session.user.role, card.section))
 
   return (
     <div className="px-4 py-6 sm:px-0">
@@ -127,7 +143,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
+        {visibleCards.map((card) => (
           <Link key={card.href} href={card.href} className="panel block overflow-hidden p-6">
             <div className="flex items-start gap-4">
               <div className={`rounded-xl p-3 ${card.iconClass}`}>

@@ -212,6 +212,12 @@ export default function LoginPage() {
 
           <div className="text-center">
             <Link
+              href="/forgot-password"
+              className="block mb-2 font-medium text-brand-brown hover:text-brand-brown-light"
+            >
+              Forgot password?
+            </Link>
+            <Link
               href="/register"
               className="font-medium text-brand-brown hover:text-brand-brown-light"
             >
