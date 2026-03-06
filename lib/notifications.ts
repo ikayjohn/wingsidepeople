@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma"
 
+type NotificationUser = {
+  id: string
+}
+
 export async function createNotification(params: {
   userId: string
   type: string
@@ -18,14 +22,14 @@ export async function notifyAllEmployees(params: {
   message: string
   link?: string
 }) {
-  const users = await prisma.user.findMany({
+  const users: NotificationUser[] = await prisma.user.findMany({
     select: { id: true },
   })
 
   if (users.length === 0) return
 
   await prisma.notification.createMany({
-    data: users.map((user) => ({
+    data: users.map((user: NotificationUser) => ({
       userId: user.id,
       type: params.type,
       title: params.title,
