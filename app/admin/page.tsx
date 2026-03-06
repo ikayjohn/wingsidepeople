@@ -6,6 +6,13 @@ import { prisma } from "@/lib/prisma"
 import { getMissingProfileFields, type ProfileSnapshot } from "@/lib/profile-completion"
 
 const STAFF_ROLE_FILTER = { notIn: ["admin", "super_admin"] }
+type PendingApprovalUser = {
+  id: string
+  name: string | null
+  preferredName: string | null
+  email: string
+  createdAt: Date
+}
 
 export default async function AdminDashboard() {
   const session = await auth()
@@ -224,7 +231,7 @@ export default async function AdminDashboard() {
           <div className="px-5 py-4">
             <p className="mb-3 text-xs text-gray-500">Urgent (3+ days waiting): {urgentPendingUsers}</p>
             <ul className="space-y-2">
-              {pendingApprovals.map((user) => (
+              {pendingApprovals.map((user: PendingApprovalUser) => (
                 <li key={user.id} className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2">
                   <div>
                     <p className="text-sm font-medium text-gray-900">
