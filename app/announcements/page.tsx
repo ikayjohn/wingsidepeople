@@ -3,13 +3,14 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
-import type { Announcement } from "@prisma/client"
+
+type AnnouncementItem = Awaited<ReturnType<typeof prisma.announcement.findMany>>[number]
 
 export default async function AnnouncementsPage() {
   const session = await auth()
   if (!session) redirect("/login")
 
-  const announcements: Announcement[] = await prisma.announcement.findMany({
+  const announcements: AnnouncementItem[] = await prisma.announcement.findMany({
     orderBy: [
       { pinned: 'desc' },
       { publishedAt: 'desc' }
@@ -31,7 +32,7 @@ export default async function AnnouncementsPage() {
           <div className="bg-white shadow rounded-lg">
             {announcements && announcements.length > 0 ? (
               <ul className="divide-y divide-gray-200">
-                {announcements.map((announcement: Announcement) => (
+                {announcements.map((announcement: AnnouncementItem) => (
                   <li key={announcement.id}>
                     <Link
                       href={`/announcements/${announcement.id}`}
