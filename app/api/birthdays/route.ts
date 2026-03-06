@@ -3,12 +3,22 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { daysUntil, isSameMonthDay, nextBirthdayDate, yearsSince } from "@/lib/birthday-utils"
 
+type BirthdayUser = {
+  id: string
+  name: string | null
+  preferredName: string | null
+  department: string | null
+  image: string | null
+  birthday: Date | null
+  employmentStartDate: Date | null
+}
+
 export async function GET() {
   const { error } = await requireAuth()
   if (error) return error
 
   const now = new Date()
-  const users = await prisma.user.findMany({
+  const users: BirthdayUser[] = await prisma.user.findMany({
     where: {
       birthday: { not: null },
       showBirthdayPublicly: true,
