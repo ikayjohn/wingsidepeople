@@ -68,9 +68,9 @@ export async function GET(req: Request) {
   return NextResponse.json({
     employees,
     filters: {
-      departments: departments.map((d) => d.department).filter(Boolean),
-      roles: roles.map((r) => r.role).filter(Boolean),
-      locations: locations.map((l) => l.workLocation).filter(Boolean),
+      departments: departments.map((d: { department: string | null }) => d.department).filter(Boolean),
+      roles: roles.map((r: { role: string | null }) => r.role).filter(Boolean),
+      locations: locations.map((l: { workLocation: string | null }) => l.workLocation).filter(Boolean),
     },
   })
 }
