@@ -14,6 +14,53 @@ type BirthdayUser = {
   birthday: Date | null
 }
 
+type ProfileData = {
+  employeeId: string | null
+  gender: string | null
+  phone: string | null
+  address: string | null
+  department: string | null
+  position: string | null
+  employmentType: string | null
+  workLocation: string | null
+  employmentStartDate: Date | null
+  emergencyContact: string | null
+  emergencyPhone: string | null
+  birthday: Date | null
+} | null
+
+type AnnouncementItem = {
+  id: string
+  title: string
+  pinned: boolean
+  publishedAt: Date
+}
+
+type ChecklistItem = {
+  id: string
+  template: { title: string }
+  progress: { completed: boolean }[]
+}
+
+type UpcomingEvent = {
+  id: string
+  title: string
+  startDate: Date
+}
+
+type PolicyUpdate = {
+  id: string
+  title: string
+  updatedAt: Date
+}
+
+type RecognitionItem = {
+  id: string
+  title: string
+  fromUser: { name: string | null; preferredName: string | null }
+  toUser: { name: string | null; preferredName: string | null }
+}
+
 export default async function DashboardPage() {
   const session = await auth()
   if (!session) redirect("/login")
@@ -88,12 +135,12 @@ export default async function DashboardPage() {
     }),
   ])
 
-  const profile = results[0].status === "fulfilled" ? results[0].value : null
-  const announcements = results[1].status === "fulfilled" ? results[1].value : []
-  const checklists = results[2].status === "fulfilled" ? results[2].value : []
-  const upcomingEvents = results[3].status === "fulfilled" ? results[3].value : []
-  const policyUpdates = results[4].status === "fulfilled" ? results[4].value : []
-  const recognitionHighlights = results[5].status === "fulfilled" ? results[5].value : []
+  const profile: ProfileData = results[0].status === "fulfilled" ? results[0].value : null
+  const announcements: AnnouncementItem[] = results[1].status === "fulfilled" ? results[1].value : []
+  const checklists: ChecklistItem[] = results[2].status === "fulfilled" ? results[2].value : []
+  const upcomingEvents: UpcomingEvent[] = results[3].status === "fulfilled" ? results[3].value : []
+  const policyUpdates: PolicyUpdate[] = results[4].status === "fulfilled" ? results[4].value : []
+  const recognitionHighlights: RecognitionItem[] = results[5].status === "fulfilled" ? results[5].value : []
   const birthdayUsers: BirthdayUser[] = results[6].status === "fulfilled" ? results[6].value : []
 
   const missingProfileFields = getMissingProfileFields(profile)
