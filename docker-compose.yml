@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wingside-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wingside_portal
+      POSTGRES_USER: wingside_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wingside_user -d wingside_portal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wingside-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wingside-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://wingside_user:${DB_PASSWORD:-changeme}@postgres:5432/wingside_portal
+      DIRECT_DATABASE_URL: postgresql://wingside_user:${DB_PASSWORD:-changeme}@postgres:5432/wingside_portal
+      NODE_ENV: production
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+    ports:
+      - "3000:3000"
+    networks:
+      - wingside-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  wingside-network:
+    driver: bridge

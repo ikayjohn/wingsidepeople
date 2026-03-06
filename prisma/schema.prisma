@@ -1,0 +1,387 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String    @id @default(cuid())
+  name             String?
+  preferredName    String?
+  employeeId       String?   @unique
+  email            String    @unique
+  emailVerified    DateTime?
+  image            String?
+  password         String?
+  role             String    @default("employee")
+  gender           String?
+  phone            String?
+  address          String?
+  departmentId     String?
+  department       String?
+  position         String?
+  managerId        String?
+  employmentType   String?
+  workLocation     String?
+  employmentStartDate DateTime?
+  status           String    @default("active")
+  showBirthdayPublicly Boolean @default(true)
+  annualLeaveAllowance Int   @default(20)
+  emergencyContact String?
+  emergencyPhone   String?
+  birthday         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  lastLogin        DateTime?
+
+  departmentRef         Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  manager               User?       @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports         User[]      @relation("UserManager")
+  accounts              Account[]
+  sessions              Session[]
+  notifications         Notification[]
+  assignedChecklists    EmployeeChecklist[]
+  policyAcknowledgments PolicyAcknowledgment[]
+  eventRsvps            EventRsvp[]
+  leaveRequests         LeaveRequest[] @relation("LeaveRequestEmployee")
+  reviewedLeaveRequests LeaveRequest[] @relation("LeaveRequestReviewer")
+  hrRequests            HRRequest[]    @relation("HRRequestEmployee")
+  reviewedHrRequests    HRRequest[]    @relation("HRRequestReviewer")
+  recognitionsGiven     Recognition[]  @relation("RecognitionFromUser")
+  recognitionsReceived  Recognition[]  @relation("RecognitionToUser")
+  birthdayWishesSent    BirthdayWish[] @relation("BirthdayWishFromUser")
+  birthdayWishesReceived BirthdayWish[] @relation("BirthdayWishToUser")
+  auditLogs             AuditLog[]
+  documentVersions      DocumentVersion[]
+
+  @@index([departmentId, position])
+  @@index([role, status])
+  @@index([managerId])
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String?  @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  pinned      Boolean  @default(false)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([pinned(sort: Desc), publishedAt(sort: Desc)])
+}
+
+model HandbookSection {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  content   String   @db.Text
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+}
+
+model Policy {
+  id            String    @id @default(cuid())
+  title         String
+  slug          String    @unique
+  category      String
+  summary       String?
+  content       String    @db.Text
+  effectiveDate DateTime?
+  lastReviewed  DateTime?
+  status        String    @default("published")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  acknowledgments PolicyAcknowledgment[]
+
+  @@index([category, title])
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  version     Int      @default(1)
+  filename    String
+  filepath    String
+  filesize    Int
+  mimetype    String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category, title])
+  versions DocumentVersion[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+}
+
+model OnboardingTemplate {
+  id        String   @id @default(cuid())
+  title     String
+  department String?
+  position   String?
+  isDefault  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items      OnboardingItem[]
+  checklists EmployeeChecklist[]
+}
+
+model OnboardingItem {
+  id          String  @id @default(cuid())
+  templateId  String
+  title       String
+  description String?
+  order       Int
+
+  template OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  progress ChecklistProgress[]
+
+  @@index([templateId, order])
+}
+
+model EmployeeChecklist {
+  id         String   @id @default(cuid())
+  userId     String
+  templateId String
+  assignedAt DateTime @default(now())
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  progress ChecklistProgress[]
+
+  @@unique([userId, templateId])
+}
+
+model ChecklistProgress {
+  id          String    @id @default(cuid())
+  checklistId String
+  itemId      String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  checklist EmployeeChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  item      OnboardingItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([checklistId, itemId])
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.Text
+  category    String
+  startDate   DateTime
+  endDate     DateTime?
+  allDay      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  rsvps EventRsvp[]
+
+  @@index([startDate, endDate])
+  @@index([category])
+}
+
+model EventRsvp {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model PolicyAcknowledgment {
+  id             String   @id @default(cuid())
+  policyId       String
+  userId         String
+  acknowledgedAt DateTime @default(now())
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, userId])
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  version     Int
+  filename    String
+  filepath    String
+  filesize    Int
+  mimetype    String
+  createdAt   DateTime @default(now())
+  createdById String?
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation(fields: [createdById], references: [id])
+
+  @@unique([documentId, version])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  details    String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([resource, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model LeaveRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  leaveType    String
+  startDate    DateTime
+  endDate      DateTime
+  days         Int
+  reason       String?  @db.Text
+  status       String   @default("pending")
+  reviewedById String?
+  reviewNotes  String?  @db.Text
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User  @relation("LeaveRequestEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("LeaveRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@index([status, startDate])
+}
+
+model HRRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String
+  title        String
+  description  String   @db.Text
+  status       String   @default("open")
+  priority     String   @default("normal")
+  reviewedById String?
+  response     String?  @db.Text
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User  @relation("HRRequestEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("HRRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@index([status, type, createdAt(sort: Desc)])
+}
+
+model Recognition {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  category   String
+  title      String
+  message    String   @db.Text
+  isPublic   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  fromUser User @relation("RecognitionFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("RecognitionToUser", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([toUserId, createdAt(sort: Desc)])
+  @@index([isPublic, createdAt(sort: Desc)])
+}
+
+model BirthdayWish {
+  id         String   @id @default(cuid())
+  toUserId   String
+  fromUserId String
+  message    String
+  createdAt  DateTime @default(now())
+
+  toUser   User @relation("BirthdayWishToUser", fields: [toUserId], references: [id], onDelete: Cascade)
+  fromUser User @relation("BirthdayWishFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
+
+  @@index([toUserId, createdAt(sort: Desc)])
+}
