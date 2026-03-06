@@ -13,18 +13,27 @@ const categoryLabels: Record<string, string> = {
   other: 'Other',
 }
 
+type DocumentItem = {
+  id: string
+  category: string
+  title: string
+  version: number
+  description: string | null
+  filesize: number
+}
+
 export default async function DocumentsPage() {
   const session = await auth()
   if (!session) redirect("/login")
 
-  const documents = await prisma.document.findMany({
+  const documents: DocumentItem[] = await prisma.document.findMany({
     orderBy: [
       { category: 'asc' },
       { title: 'asc' }
     ]
   })
 
-  const documentsByCategory = documents.reduce<Record<string, typeof documents>>((acc, doc) => {
+  const documentsByCategory = documents.reduce<Record<string, DocumentItem[]>>((acc: Record<string, DocumentItem[]>, doc: DocumentItem) => {
     const category = doc.category || 'other'
     if (!acc[category]) {
       acc[category] = []
