@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         userId: data.userId,
         templateId: data.templateId,
         progress: {
-          create: template.items.map((item) => ({
+          create: template.items.map((item: { id: string }) => ({
             itemId: item.id,
             completed: false,
           })),
