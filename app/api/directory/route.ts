@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth()
+  const { error, session } = await requireAuth()
   if (error) return error
 
   const { searchParams } = new URL(req.url)
@@ -66,6 +66,7 @@ export async function GET(req: Request) {
   ])
 
   return NextResponse.json({
+    currentUserId: session!.user.id,
     employees,
     filters: {
       departments: departments.map((d: { department: string | null }) => d.department).filter(Boolean),

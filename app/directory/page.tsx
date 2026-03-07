@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 interface DirectoryUser {
@@ -36,6 +37,7 @@ interface DirectoryDetail {
 }
 
 interface DirectoryResponse {
+  currentUserId: string
   employees: DirectoryUser[]
   filters: {
     departments: string[]
@@ -45,6 +47,7 @@ interface DirectoryResponse {
 }
 
 export default function DirectoryPage() {
+  const [currentUserId, setCurrentUserId] = useState("")
   const [employees, setEmployees] = useState<DirectoryUser[]>([])
   const [filters, setFilters] = useState<DirectoryResponse["filters"]>({
     departments: [],
@@ -77,6 +80,7 @@ export default function DirectoryPage() {
       const res = await fetch(`/api/directory${queryString ? `?${queryString}` : ""}`)
       if (!res.ok) throw new Error("Failed to load directory")
       const data = (await res.json()) as DirectoryResponse
+      setCurrentUserId(data.currentUserId)
       setEmployees(data.employees)
       setFilters(data.filters)
     } catch {
@@ -171,29 +175,39 @@ export default function DirectoryPage() {
             <ul className="divide-y divide-gray-200">
               {employees.map((employee) => (
                 <li key={employee.id} className="interactive-row px-4 py-4 sm:px-6">
-                  <button
-                    type="button"
-                    onClick={() => fetchDetail(employee.id)}
-                    className="w-full text-left"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {employee.preferredName || employee.name || employee.email}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {employee.position || "No title"} • {employee.department || "No department"} • {employee.workLocation || "No location"}
-                        </p>
+                  <div className="flex items-center justify-between gap-4">
+                    <button
+                      type="button"
+                      onClick={() => fetchDetail(employee.id)}
+                      className="flex-1 text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {employee.preferredName || employee.name || employee.email}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {employee.position || "No title"} • {employee.department || "No department"} • {employee.workLocation || "No location"}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            selectedId === employee.id ? "bg-brand-gold-light text-brand-brown" : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {employee.role}
+                        </span>
                       </div>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          selectedId === employee.id ? "bg-brand-gold-light text-brand-brown" : "bg-gray-100 text-gray-700"
-                        }`}
+                    </button>
+                    {employee.id !== currentUserId && (
+                      <Link
+                        href={`/messages?userId=${employee.id}`}
+                        className="rounded-full border border-[#e3bc68] bg-brand-gold px-3 py-1.5 text-xs font-semibold text-brand-brown"
                       >
-                        {employee.role}
-                      </span>
-                    </div>
-                  </button>
+                        Message
+                      </Link>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -227,6 +241,16 @@ export default function DirectoryPage() {
               {selected.address && <p><span className="font-medium">Address:</span> {selected.address}</p>}
               {selected.emergencyContact && <p><span className="font-medium">Emergency Contact:</span> {selected.emergencyContact}</p>}
               {selected.emergencyPhone && <p><span className="font-medium">Emergency Phone:</span> {selected.emergencyPhone}</p>}
+              {selected.id !== currentUserId && (
+                <div className="pt-3">
+                  <Link
+                    href={`/messages?userId=${selected.id}`}
+                    className="inline-flex rounded-full border border-[#e3bc68] bg-brand-gold px-4 py-2 text-xs font-semibold text-brand-brown"
+                  >
+                    Message employee
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-gray-500">Select an employee to view profile details.</p>

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import ProfileForm from "@/components/ProfileForm"
 import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
+import Link from "next/link"
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -73,6 +74,12 @@ export default async function ProfilePage() {
               <p className="text-xs text-gray-400">
                 Member since {new Date(serializedUser.createdAt).toLocaleDateString()}
               </p>
+              <Link
+                href="/messages"
+                className="mt-3 inline-flex rounded-full border border-[#e3bc68] bg-brand-gold px-4 py-2 text-xs font-semibold text-brand-brown"
+              >
+                Open messages
+              </Link>
             </div>
           </div>
         </div>

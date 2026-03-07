@@ -45,6 +45,8 @@ model User {
   accounts              Account[]
   sessions              Session[]
   notifications         Notification[]
+  conversationMemberships ConversationMember[]
+  sentMessages          Message[] @relation("MessageSender")
   assignedChecklists    EmployeeChecklist[]
   policyAcknowledgments PolicyAcknowledgment[]
   documentAcknowledgments DocumentAcknowledgment[]
@@ -185,6 +187,48 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read, createdAt(sort: Desc)])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  type      String   @default("direct")
+  directKey String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([updatedAt(sort: Desc)])
+}
+
+model ConversationMember {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([senderId, createdAt(sort: Desc)])
 }
 
 model OnboardingTemplate {
