@@ -52,6 +52,15 @@ type ConversationDetail = {
   } | null
 }
 
+async function getApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string }
+    return data.error || fallback
+  } catch {
+    return fallback
+  }
+}
+
 export default function MessagesInbox({ currentUserId }: { currentUserId: string }) {
   const searchParams = useSearchParams()
   const targetUserId = searchParams.get("userId")
@@ -69,17 +78,20 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
   const fetchConversations = useCallback(async () => {
     try {
       const res = await fetch("/api/messages/conversations", { cache: "no-store" })
-      if (!res.ok) throw new Error("Failed to load conversations")
+      if (!res.ok) {
+        throw new Error(await getApiError(res, "Failed to load conversations"))
+      }
 
       const data = await res.json()
       const nextConversations = data.conversations as ConversationSummary[]
       setConversations(nextConversations)
+      setError("")
 
       if (!selectedConversationId && nextConversations.length > 0 && !targetUserId) {
         setSelectedConversationId(nextConversations[0].id)
       }
-    } catch {
-      setError("Failed to load conversations")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load conversations")
     } finally {
       setLoadingList(false)
     }
@@ -89,18 +101,21 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
     setLoadingThread(true)
     try {
       const res = await fetch(`/api/messages/conversations/${conversationId}/messages`, { cache: "no-store" })
-      if (!res.ok) throw new Error("Failed to load messages")
+      if (!res.ok) {
+        throw new Error(await getApiError(res, "Failed to load messages"))
+      }
 
       const data = await res.json()
       setConversation(data.conversation as ConversationDetail)
       setMessages(data.messages as ConversationMessage[])
+      setError("")
       setConversations((prev: ConversationSummary[]) =>
         prev.map((item: ConversationSummary) =>
           item.id === conversationId ? { ...item, hasUnread: false } : item
         )
       )
-    } catch {
-      setError("Failed to load messages")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load messages")
     } finally {
       setLoadingThread(false)
     }
@@ -169,6 +184,7 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
 
         const data = await res.json()
         if (isMounted) {
+          setError("")
           setSelectedConversationId(data.conversationId as string)
           void fetchConversations()
         }
@@ -192,12 +208,15 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: messageBody }),
       })
-      if (!res.ok) throw new Error("Failed to send message")
+      if (!res.ok) {
+        throw new Error(await getApiError(res, "Failed to send message"))
+      }
 
       const data = await res.json()
       const nextMessage = data.message as ConversationMessage
 
       setMessages((prev: ConversationMessage[]) => [...prev, nextMessage])
+      setError("")
       setConversations((prev: ConversationSummary[]) =>
         prev
           .map((item: ConversationSummary) =>
@@ -218,8 +237,8 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
           .sort((a: ConversationSummary, b: ConversationSummary) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       )
       setMessageBody("")
-    } catch {
-      setError("Failed to send message")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message")
     } finally {
       setSending(false)
     }

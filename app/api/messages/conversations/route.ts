@@ -42,73 +42,81 @@ export async function GET() {
   const { error, session } = await requireAuth()
   if (error) return error
 
-  const conversations = await prisma.conversation.findMany({
-    where: {
-      members: {
-        some: { userId: session!.user.id },
+  try {
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        members: {
+          some: { userId: session!.user.id },
+        },
       },
-    },
-    select: {
-      id: true,
-      updatedAt: true,
-      members: {
-        select: {
-          id: true,
-          userId: true,
-          lastReadAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              preferredName: true,
-              email: true,
-              image: true,
-              department: true,
-              position: true,
+      select: {
+        id: true,
+        updatedAt: true,
+        members: {
+          select: {
+            id: true,
+            userId: true,
+            lastReadAt: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                preferredName: true,
+                email: true,
+                image: true,
+                department: true,
+                position: true,
+              },
             },
           },
         },
-      },
-      messages: {
-        take: 1,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          body: true,
-          createdAt: true,
-          senderId: true,
+        messages: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            body: true,
+            createdAt: true,
+            senderId: true,
+          },
         },
       },
-    },
-  })
-
-  const items = conversations
-    .map((conversation) => {
-      const typedConversation = conversation as ConversationListItem
-      const selfMember = typedConversation.members.find((member) => member.userId === session!.user.id)
-      const otherMember = typedConversation.members.find((member) => member.userId !== session!.user.id)
-      const latestMessage = typedConversation.messages[0] ?? null
-
-      if (!selfMember || !otherMember) {
-        return null
-      }
-
-      const hasUnread = !!latestMessage &&
-        latestMessage.senderId !== session!.user.id &&
-        (!selfMember.lastReadAt || latestMessage.createdAt > selfMember.lastReadAt)
-
-      return {
-        id: typedConversation.id,
-        updatedAt: typedConversation.updatedAt,
-        otherUser: otherMember.user,
-        latestMessage,
-        hasUnread,
-      }
     })
-    .filter((item): item is NonNullable<typeof item> => !!item)
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
 
-  return NextResponse.json({ conversations: items })
+    const items = conversations
+      .map((conversation) => {
+        const typedConversation = conversation as ConversationListItem
+        const selfMember = typedConversation.members.find((member) => member.userId === session!.user.id)
+        const otherMember = typedConversation.members.find((member) => member.userId !== session!.user.id)
+        const latestMessage = typedConversation.messages[0] ?? null
+
+        if (!selfMember || !otherMember) {
+          return null
+        }
+
+        const hasUnread = !!latestMessage &&
+          latestMessage.senderId !== session!.user.id &&
+          (!selfMember.lastReadAt || latestMessage.createdAt > selfMember.lastReadAt)
+
+        return {
+          id: typedConversation.id,
+          updatedAt: typedConversation.updatedAt,
+          otherUser: otherMember.user,
+          latestMessage,
+          hasUnread,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => !!item)
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+
+    return NextResponse.json({ conversations: items })
+  } catch (err) {
+    console.error("Failed to load conversations", err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to load conversations" },
+      { status: 500 }
+    )
+  }
 }
 
 export async function POST(req: Request) {
