@@ -26,6 +26,10 @@ export default function AdminEmployeesPage() {
     () => employees.filter((e) => e.status === "pending_approval"),
     [employees]
   )
+  const allEmployees = useMemo(
+    () => [...employees].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [employees]
+  )
   const urgentPendingCount = useMemo(
     () => pendingEmployees.filter((e) => getPendingAgeDays(e.createdAt) >= 3).length,
     [pendingEmployees]
@@ -145,6 +149,48 @@ export default function AdminEmployeesPage() {
           </ul>
         )}
       </section>
+
+      <section className="panel mt-6 overflow-hidden">
+        <div className="border-b border-gray-200 px-5 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">All Users ({allEmployees.length})</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            Full staff list with current account status.
+          </p>
+        </div>
+
+        {loading ? (
+          <p className="px-5 py-6 text-sm text-gray-500">Loading employees...</p>
+        ) : allEmployees.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-gray-500">No users found.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {allEmployees.map((employee) => (
+              <li key={employee.id} className="px-5 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {employee.preferredName || employee.name || employee.email}
+                      </p>
+                      <StatusBadge status={employee.status} />
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                        {employee.role}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">{employee.email}</p>
+                    <p className="mt-1 text-xs text-[#4b5563]">
+                      {employee.department || "No department"} • {employee.position || "No position"} • {employee.workLocation || "No location"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Joined {formatSubmittedDate(employee.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }
@@ -158,4 +204,21 @@ function getPendingAgeDays(createdAt: string) {
 
 function formatSubmittedDate(createdAt: string) {
   return new Date(createdAt).toLocaleDateString()
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const tone =
+    status === "active"
+      ? "border-green-200 bg-green-50 text-green-700"
+      : status === "pending_approval"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : status === "rejected" || status === "suspended" || status === "exited"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-slate-200 bg-slate-50 text-slate-700"
+
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${tone}`}>
+      {status.replaceAll("_", " ")}
+    </span>
+  )
 }
