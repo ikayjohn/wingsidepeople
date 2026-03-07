@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import Navbar from "@/components/Navbar"
+import DocumentAcknowledgeButton from "@/components/DocumentAcknowledgeButton"
 
 const categoryLabels: Record<string, string> = {
   forms: 'Forms',
@@ -66,31 +67,42 @@ export default async function DocumentsPage() {
                   <ul className="divide-y divide-gray-200">
                     {docs.map((doc) => (
                       <li key={doc.id}>
-                        <a
-                          href={`/api/documents/${doc.id}/download`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block hover:bg-gray-50"
-                        >
-                          <div className="px-4 py-4 sm:px-6">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
+                        <div className="px-4 py-4 sm:px-6">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <a
+                                href={`/api/documents/${doc.id}/download`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block hover:text-brand-brown"
+                              >
                                 <p className="text-sm font-medium text-brand-brown">
                                   {doc.title}
                                 </p>
-                                <p className="mt-1 text-xs text-gray-500">Version {doc.version}</p>
-                                {doc.description && (
-                                  <p className="mt-1 text-sm text-gray-500">
-                                    {doc.description}
-                                  </p>
-                                )}
+                              </a>
+                              <p className="mt-1 text-xs text-gray-500">Version {doc.version}</p>
+                              {doc.description && (
+                                <p className="mt-1 text-sm text-gray-500">
+                                  {doc.description}
+                                </p>
+                              )}
+                              <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <a
+                                  href={`/api/documents/${doc.id}/download`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center rounded-md border border-brand-gold/40 bg-brand-gold-light px-3 py-1.5 text-sm font-medium text-brand-brown hover:bg-brand-gold"
+                                >
+                                  Open document
+                                </a>
+                                <DocumentAcknowledgeButton documentId={doc.id} />
                               </div>
-                              <span className="ml-4 text-xs text-gray-400">
-                                {(doc.filesize / 1024).toFixed(0)} KB
-                              </span>
                             </div>
+                            <span className="text-xs text-gray-400">
+                              {(doc.filesize / 1024).toFixed(0)} KB
+                            </span>
                           </div>
-                        </a>
+                        </div>
                       </li>
                     ))}
                   </ul>

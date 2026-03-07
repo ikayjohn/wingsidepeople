@@ -47,6 +47,7 @@ model User {
   notifications         Notification[]
   assignedChecklists    EmployeeChecklist[]
   policyAcknowledgments PolicyAcknowledgment[]
+  documentAcknowledgments DocumentAcknowledgment[]
   eventRsvps            EventRsvp[]
   leaveRequests         LeaveRequest[] @relation("LeaveRequestEmployee")
   reviewedLeaveRequests LeaveRequest[] @relation("LeaveRequestReviewer")
@@ -168,6 +169,7 @@ model Document {
 
   @@index([category, title])
   versions DocumentVersion[]
+  acknowledgments DocumentAcknowledgment[]
 }
 
 model Notification {
@@ -278,6 +280,18 @@ model PolicyAcknowledgment {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([policyId, userId])
+}
+
+model DocumentAcknowledgment {
+  id             String   @id @default(cuid())
+  documentId     String
+  userId         String
+  acknowledgedAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
 }
 
 model DocumentVersion {
