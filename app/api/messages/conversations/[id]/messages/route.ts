@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
+import { broadcastInboxMessage } from "@/lib/messages"
 
 const sendMessageSchema = z.object({
   body: z.string().trim().min(1).max(2000),
@@ -148,7 +149,11 @@ export async function POST(
     }
 
     const now = new Date()
-    const [, , message] = await prisma.$transaction([
+    const [members, , , message] = await prisma.$transaction([
+      prisma.conversationMember.findMany({
+        where: { conversationId: id },
+        select: { userId: true },
+      }),
       prisma.conversation.update({
         where: { id },
         data: { updatedAt: now },
@@ -184,6 +189,16 @@ export async function POST(
         },
       }),
     ])
+
+    void broadcastInboxMessage(
+      members.map((member: { userId: string }) => member.userId),
+      {
+        conversationId: id,
+        message,
+      }
+    ).catch(() => {
+      // Message delivery should not fail if the realtime broadcast does.
+    })
 
     return NextResponse.json({ message })
   } catch (err) {

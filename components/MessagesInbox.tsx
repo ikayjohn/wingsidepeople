@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type ConversationSummary = {
   id: string
@@ -65,38 +66,89 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
   const [messageBody, setMessageBody] = useState("")
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    let isMounted = true
+  const fetchConversations = useCallback(async () => {
+    try {
+      const res = await fetch("/api/messages/conversations", { cache: "no-store" })
+      if (!res.ok) throw new Error("Failed to load conversations")
 
-    const fetchConversations = async () => {
-      try {
-        const res = await fetch("/api/messages/conversations", { cache: "no-store" })
-        if (!res.ok) throw new Error("Failed to load conversations")
+      const data = await res.json()
+      const nextConversations = data.conversations as ConversationSummary[]
+      setConversations(nextConversations)
 
-        const data = await res.json()
-        if (isMounted) {
-          const nextConversations = data.conversations as ConversationSummary[]
-          setConversations(nextConversations)
-
-          if (!selectedConversationId && nextConversations.length > 0 && !targetUserId) {
-            setSelectedConversationId(nextConversations[0].id)
-          }
-        }
-      } catch {
-        if (isMounted) setError("Failed to load conversations")
-      } finally {
-        if (isMounted) setLoadingList(false)
+      if (!selectedConversationId && nextConversations.length > 0 && !targetUserId) {
+        setSelectedConversationId(nextConversations[0].id)
       }
-    }
-
-    fetchConversations()
-    const intervalId = window.setInterval(fetchConversations, 15000)
-
-    return () => {
-      isMounted = false
-      window.clearInterval(intervalId)
+    } catch {
+      setError("Failed to load conversations")
+    } finally {
+      setLoadingList(false)
     }
   }, [selectedConversationId, targetUserId])
+
+  const fetchThread = useCallback(async (conversationId: string) => {
+    setLoadingThread(true)
+    try {
+      const res = await fetch(`/api/messages/conversations/${conversationId}/messages`, { cache: "no-store" })
+      if (!res.ok) throw new Error("Failed to load messages")
+
+      const data = await res.json()
+      setConversation(data.conversation as ConversationDetail)
+      setMessages(data.messages as ConversationMessage[])
+      setConversations((prev: ConversationSummary[]) =>
+        prev.map((item: ConversationSummary) =>
+          item.id === conversationId ? { ...item, hasUnread: false } : item
+        )
+      )
+    } catch {
+      setError("Failed to load messages")
+    } finally {
+      setLoadingThread(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchConversations()
+  }, [fetchConversations])
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient()
+    const channel = supabase.channel(`user-inbox:${currentUserId}`, {
+      config: { private: true },
+    })
+
+    channel
+      .on("broadcast", { event: "message.created" }, (payload: { payload: { conversationId: string; message: ConversationMessage } }) => {
+        const eventPayload = payload.payload as {
+          conversationId: string
+          message: ConversationMessage
+        }
+
+        void fetchConversations()
+
+        if (eventPayload.conversationId === selectedConversationId) {
+          setMessages((prev: ConversationMessage[]) =>
+            prev.some((message: ConversationMessage) => message.id === eventPayload.message.id)
+              ? prev
+              : [...prev, eventPayload.message]
+          )
+        }
+      })
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [currentUserId, fetchConversations, selectedConversationId])
+
+  useEffect(() => {
+    if (!selectedConversationId) {
+      setConversation(null)
+      setMessages([])
+      return
+    }
+
+    void fetchThread(selectedConversationId)
+  }, [fetchThread, selectedConversationId])
 
   useEffect(() => {
     if (!targetUserId || targetUserId === currentUserId) return
@@ -113,56 +165,18 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
         if (!res.ok) throw new Error("Failed to open conversation")
 
         const data = await res.json()
-        if (isMounted) setSelectedConversationId(data.conversationId as string)
+        if (isMounted) {
+          setSelectedConversationId(data.conversationId as string)
+          void fetchConversations()
+        }
       } catch {
         if (isMounted) setError("Failed to open conversation")
       }
     }
 
-    openDirectConversation()
+    void openDirectConversation()
     return () => { isMounted = false }
-  }, [currentUserId, targetUserId])
-
-  useEffect(() => {
-    if (!selectedConversationId) {
-      setConversation(null)
-      setMessages([])
-      return
-    }
-
-    let isMounted = true
-
-    const fetchThread = async () => {
-      setLoadingThread(true)
-      try {
-        const res = await fetch(`/api/messages/conversations/${selectedConversationId}/messages`, { cache: "no-store" })
-        if (!res.ok) throw new Error("Failed to load messages")
-
-        const data = await res.json()
-        if (isMounted) {
-          setConversation(data.conversation as ConversationDetail)
-          setMessages(data.messages as ConversationMessage[])
-          setConversations((prev: ConversationSummary[]) =>
-            prev.map((item: ConversationSummary) =>
-              item.id === selectedConversationId ? { ...item, hasUnread: false } : item
-            )
-          )
-        }
-      } catch {
-        if (isMounted) setError("Failed to load messages")
-      } finally {
-        if (isMounted) setLoadingThread(false)
-      }
-    }
-
-    fetchThread()
-    const intervalId = window.setInterval(fetchThread, 10000)
-
-    return () => {
-      isMounted = false
-      window.clearInterval(intervalId)
-    }
-  }, [selectedConversationId])
+  }, [currentUserId, fetchConversations, targetUserId])
 
   const handleSend = async () => {
     if (!selectedConversationId || !messageBody.trim()) return
