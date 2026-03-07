@@ -162,15 +162,18 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         })
-        if (!res.ok) throw new Error("Failed to open conversation")
+        if (!res.ok) {
+          const data = (await res.json()) as { error?: string }
+          throw new Error(data.error || "Failed to open conversation")
+        }
 
         const data = await res.json()
         if (isMounted) {
           setSelectedConversationId(data.conversationId as string)
           void fetchConversations()
         }
-      } catch {
-        if (isMounted) setError("Failed to open conversation")
+      } catch (err) {
+        if (isMounted) setError(err instanceof Error ? err.message : "Failed to open conversation")
       }
     }
 

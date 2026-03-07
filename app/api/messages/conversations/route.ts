@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { buildDirectConversationKey } from "@/lib/messages"
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client"
 
 const createConversationSchema = z.object({
   targetUserId: z.string().min(1),
@@ -126,21 +127,41 @@ export async function POST(req: Request) {
       where: { id: data.targetUserId },
       select: { id: true, status: true },
     })
-    if (!target || target.status === "exited") {
+    if (!target || target.status !== "active") {
       return NextResponse.json({ error: "User not found." }, { status: 404 })
     }
 
     const directKey = buildDirectConversationKey(session!.user.id, data.targetUserId)
-
-    const conversation = await prisma.conversation.upsert({
+    let conversation = await prisma.conversation.findUnique({
       where: { directKey },
-      update: {},
-      create: {
-        type: "direct",
-        directKey,
-      },
       select: { id: true },
     })
+
+    if (!conversation) {
+      try {
+        conversation = await prisma.conversation.create({
+          data: {
+            type: "direct",
+            directKey,
+          },
+          select: { id: true },
+        })
+      } catch (err) {
+        const isUniqueConflict =
+          err instanceof PrismaClientKnownRequestError && err.code === "P2002"
+
+        if (!isUniqueConflict) throw err
+
+        conversation = await prisma.conversation.findUnique({
+          where: { directKey },
+          select: { id: true },
+        })
+      }
+    }
+
+    if (!conversation) {
+      return NextResponse.json({ error: "Failed to resolve conversation." }, { status: 500 })
+    }
 
     await prisma.$transaction([
       prisma.conversationMember.upsert({
@@ -174,9 +195,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ conversationId: conversation.id })
   } catch (err) {
+    console.error("Failed to create conversation", err)
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0].message }, { status: 400 })
     }
-    return NextResponse.json({ error: "Failed to create conversation" }, { status: 500 })
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to create conversation" },
+      { status: 500 }
+    )
   }
 }
