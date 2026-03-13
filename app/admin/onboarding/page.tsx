@@ -1,6 +1,15 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useCallback, useEffect, useState } from "react"
+import type { OnboardingItemType } from "@/lib/onboarding-workflow"
+
+type ItemConfig = {
+  quizQuestion?: string
+  quizOptions?: string[]
+  quizAnswer?: string
+  signatureLabel?: string
+  uploadInstructions?: string
+}
 
 interface Template {
   id: string
@@ -26,6 +35,35 @@ interface ProgressEntry {
   total: number
   completed: number
   percentage: number
+  currentStep: { order: number; title: string; type: string } | null
+}
+
+type TemplateItemDraft = {
+  type: OnboardingItemType
+  title: string
+  description: string
+  resourceUrl: string
+  content: string
+  config: ItemConfig
+}
+
+const itemTypeOptions: { value: OnboardingItemType; label: string; hint: string }[] = [
+  { value: "video", label: "Video", hint: "Orientation or role training videos" },
+  { value: "reading", label: "Reading", hint: "Policies, manuals, and handbooks" },
+  { value: "document_upload", label: "Document Upload", hint: "Collect IDs, certificates, or tax forms" },
+  { value: "quiz", label: "Quiz", hint: "Short onboarding assessments" },
+  { value: "signature", label: "Signature", hint: "Employment contracts and acknowledgments" },
+]
+
+function createDraftItem(): TemplateItemDraft {
+  return {
+    type: "reading",
+    title: "",
+    description: "",
+    resourceUrl: "",
+    content: "",
+    config: {},
+  }
 }
 
 export default function AdminOnboardingPage() {
@@ -37,7 +75,7 @@ export default function AdminOnboardingPage() {
   const [title, setTitle] = useState("")
   const [department, setDepartment] = useState("")
   const [position, setPosition] = useState("")
-  const [items, setItems] = useState([{ title: "", description: "" }])
+  const [items, setItems] = useState<TemplateItemDraft[]>([createDraftItem()])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [assignTemplateId, setAssignTemplateId] = useState("")
@@ -75,10 +113,18 @@ export default function AdminOnboardingPage() {
     fetchEmployees()
   }, [])
 
-  const addItem = () => setItems([...items, { title: "", description: "" }])
-  const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index))
-  const updateItem = (index: number, field: "title" | "description", value: string) => {
-    setItems(items.map((item, i) => i === index ? { ...item, [field]: value } : item))
+  const addItem = () => setItems((current) => [...current, createDraftItem()])
+  const removeItem = (index: number) => setItems((current) => current.filter((_, i) => i !== index))
+  const updateItem = (index: number, updater: (item: TemplateItemDraft) => TemplateItemDraft) => {
+    setItems((current) => current.map((item, i) => i === index ? updater(item) : item))
+  }
+
+  const resetForm = () => {
+    setTitle("")
+    setDepartment("")
+    setPosition("")
+    setItems([createDraftItem()])
+    setShowForm(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,9 +132,25 @@ export default function AdminOnboardingPage() {
     setSaving(true)
     setError("")
 
-    const validItems = items.filter((i) => i.title.trim())
+    const validItems = items
+      .filter((item) => item.title.trim())
+      .map((item) => ({
+        type: item.type,
+        title: item.title.trim(),
+        description: item.description.trim() || null,
+        resourceUrl: item.resourceUrl.trim() || null,
+        content: item.content.trim() || null,
+        config: {
+          quizQuestion: item.config.quizQuestion?.trim() || undefined,
+          quizOptions: item.config.quizOptions?.map((option) => option.trim()).filter(Boolean),
+          quizAnswer: item.config.quizAnswer?.trim() || undefined,
+          signatureLabel: item.config.signatureLabel?.trim() || undefined,
+          uploadInstructions: item.config.uploadInstructions?.trim() || undefined,
+        },
+      }))
+
     if (validItems.length === 0) {
-      setError("Add at least one checklist item")
+      setError("Add at least one onboarding step")
       setSaving(false)
       return
     }
@@ -101,10 +163,7 @@ export default function AdminOnboardingPage() {
           title,
           department: department || null,
           position: position || null,
-          items: validItems.map((i) => ({
-            title: i.title,
-            description: i.description || null,
-          })),
+          items: validItems,
         }),
       })
 
@@ -114,11 +173,7 @@ export default function AdminOnboardingPage() {
         return
       }
 
-      setTitle("")
-      setDepartment("")
-      setPosition("")
-      setItems([{ title: "", description: "" }])
-      setShowForm(false)
+      resetForm()
       fetchData()
     } catch {
       setError("Failed to create template")
@@ -181,14 +236,14 @@ export default function AdminOnboardingPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Onboarding</h1>
-          <p className="mt-2 text-gray-600">Manage templates and track employee progress</p>
+          <p className="mt-2 text-gray-600">Build structured onboarding stages and track employee progress.</p>
         </div>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-brand-brown bg-brand-gold hover:bg-brand-gold-hover"
           >
-            New Template
+            New Workflow
           </button>
         )}
       </div>
@@ -201,11 +256,11 @@ export default function AdminOnboardingPage() {
 
       {showForm && (
         <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">New Template</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">New Onboarding Workflow</h2>
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title</label>
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700">Workflow Title</label>
                 <input
                   id="title"
                   type="text"
@@ -238,33 +293,170 @@ export default function AdminOnboardingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Checklist Items</label>
-              {items.map((item, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Item title"
-                    value={item.title}
-                    onChange={(e) => updateItem(index, "title", e.target.value)}
-                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Description (optional)"
-                    value={item.description}
-                    onChange={(e) => updateItem(index, "description", e.target.value)}
-                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
-                  />
-                  {items.length > 1 && (
-                    <button type="button" onClick={() => removeItem(index)} className="text-red-500 hover:text-red-700 px-2">
-                      &times;
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button type="button" onClick={addItem} className="text-sm text-brand-brown hover:text-brand-brown-light">
-                + Add item
-              </button>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">Workflow Stages</label>
+                <button type="button" onClick={addItem} className="text-sm text-brand-brown hover:text-brand-brown-light">
+                  + Add stage
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {items.map((item, index) => (
+                  <div key={index} className="rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Stage {index + 1}</p>
+                        <p className="text-xs text-gray-500">Employees must complete stages in order.</p>
+                      </div>
+                      {items.length > 1 && (
+                        <button type="button" onClick={() => removeItem(index)} className="text-sm text-red-600 hover:text-red-800">
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Stage Type</label>
+                        <select
+                          value={item.type}
+                          onChange={(e) => updateItem(index, (current) => ({
+                            ...current,
+                            type: e.target.value as OnboardingItemType,
+                            resourceUrl: "",
+                            content: "",
+                            config: {},
+                          }))}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                        >
+                          {itemTypeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {itemTypeOptions.find((option) => option.value === item.type)?.hint}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Stage Title</label>
+                        <input
+                          type="text"
+                          value={item.title}
+                          onChange={(e) => updateItem(index, (current) => ({ ...current, title: e.target.value }))}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700">Description</label>
+                      <textarea
+                        value={item.description}
+                        onChange={(e) => updateItem(index, (current) => ({ ...current, description: e.target.value }))}
+                        rows={2}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                      />
+                    </div>
+
+                    {(item.type === "video" || item.type === "reading") && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Link (optional)</label>
+                          <input
+                            type="url"
+                            value={item.resourceUrl}
+                            onChange={(e) => updateItem(index, (current) => ({ ...current, resourceUrl: e.target.value }))}
+                            placeholder="https://..."
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Inline Content (optional)</label>
+                          <textarea
+                            value={item.content}
+                            onChange={(e) => updateItem(index, (current) => ({ ...current, content: e.target.value }))}
+                            rows={3}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {item.type === "document_upload" && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700">Upload Instructions</label>
+                        <textarea
+                          value={item.config.uploadInstructions || ""}
+                          onChange={(e) => updateItem(index, (current) => ({
+                            ...current,
+                            config: { ...current.config, uploadInstructions: e.target.value },
+                          }))}
+                          rows={2}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                        />
+                      </div>
+                    )}
+
+                    {item.type === "quiz" && (
+                      <div className="space-y-4 mt-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Question</label>
+                          <input
+                            type="text"
+                            value={item.config.quizQuestion || ""}
+                            onChange={(e) => updateItem(index, (current) => ({
+                              ...current,
+                              config: { ...current.config, quizQuestion: e.target.value },
+                            }))}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Answer Options (one per line)</label>
+                          <textarea
+                            value={(item.config.quizOptions || []).join("\n")}
+                            onChange={(e) => updateItem(index, (current) => ({
+                              ...current,
+                              config: { ...current.config, quizOptions: e.target.value.split("\n") },
+                            }))}
+                            rows={4}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Correct Answer</label>
+                          <input
+                            type="text"
+                            value={item.config.quizAnswer || ""}
+                            onChange={(e) => updateItem(index, (current) => ({
+                              ...current,
+                              config: { ...current.config, quizAnswer: e.target.value },
+                            }))}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {item.type === "signature" && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700">Signature Prompt</label>
+                        <input
+                          type="text"
+                          value={item.config.signatureLabel || ""}
+                          onChange={(e) => updateItem(index, (current) => ({
+                            ...current,
+                            config: { ...current.config, signatureLabel: e.target.value },
+                          }))}
+                          placeholder="Type your full name to sign"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="flex space-x-3">
@@ -273,11 +465,11 @@ export default function AdminOnboardingPage() {
                 disabled={saving}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-brand-brown bg-brand-gold hover:bg-brand-gold-hover disabled:opacity-50"
               >
-                {saving ? "Creating..." : "Create Template"}
+                {saving ? "Creating..." : "Create Workflow"}
               </button>
               <button
                 type="button"
-                onClick={() => { setShowForm(false); setError("") }}
+                onClick={() => { setError(""); resetForm() }}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
               >
                 Cancel
@@ -287,20 +479,19 @@ export default function AdminOnboardingPage() {
         </div>
       )}
 
-      {/* Assign checklist */}
       {templates.length > 0 && employees.length > 0 && (
         <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Assign Checklist</h2>
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Assign Workflow</h2>
           <div className="flex gap-3 items-end">
             <div className="flex-1">
-              <label htmlFor="assignTemplate" className="block text-sm font-medium text-gray-700">Template</label>
+              <label htmlFor="assignTemplate" className="block text-sm font-medium text-gray-700">Workflow</label>
               <select
                 id="assignTemplate"
                 value={assignTemplateId}
                 onChange={(e) => setAssignTemplateId(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
               >
-                <option value="">Select template...</option>
+                <option value="">Select workflow...</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>{t.title}</option>
                 ))}
@@ -315,8 +506,8 @@ export default function AdminOnboardingPage() {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-gold focus:ring-brand-gold sm:text-sm border px-3 py-2"
               >
                 <option value="">Select employee...</option>
-                {employees.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name || e.email}</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>{employee.name || employee.email}</option>
                 ))}
               </select>
             </div>
@@ -331,24 +522,23 @@ export default function AdminOnboardingPage() {
         </div>
       )}
 
-      {/* Templates list */}
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">Templates</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Workflow Templates</h2>
       <div className="bg-white shadow rounded-lg mb-8">
         {templates.length > 0 ? (
           <ul className="divide-y divide-gray-200">
-            {templates.map((t) => (
-              <li key={t.id} className="px-4 py-4 sm:px-6">
+            {templates.map((template) => (
+              <li key={template.id} className="px-4 py-4 sm:px-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{t.title}</p>
+                    <p className="text-sm font-medium text-gray-900">{template.title}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {t._count.items} items &middot; {t._count.checklists} assigned
-                      {t.department && ` \u00B7 ${t.department}`}
-                      {t.position && ` \u00B7 ${t.position}`}
+                      {template._count.items} stages · {template._count.checklists} assigned
+                      {template.department && ` · ${template.department}`}
+                      {template.position && ` · ${template.position}`}
                     </p>
                   </div>
                   <button
-                    onClick={() => handleDelete(t.id)}
+                    onClick={() => handleDelete(template.id)}
                     className="text-sm text-red-600 hover:text-red-800"
                   >
                     Delete
@@ -359,39 +549,43 @@ export default function AdminOnboardingPage() {
           </ul>
         ) : (
           <div className="text-center py-12">
-            <h3 className="text-sm font-medium text-gray-900">No templates</h3>
-            <p className="mt-1 text-sm text-gray-500">Create a template to get started.</p>
+            <h3 className="text-sm font-medium text-gray-900">No workflows</h3>
+            <p className="mt-1 text-sm text-gray-500">Create a workflow to start onboarding new employees.</p>
           </div>
         )}
       </div>
 
-      {/* Progress tracking */}
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Employee Progress</h2>
       <div className="bg-white shadow rounded-lg">
         {progress.length > 0 ? (
           <ul className="divide-y divide-gray-200">
-            {progress.map((p) => (
-              <li key={p.id} className="px-4 py-4 sm:px-6">
+            {progress.map((entry) => (
+              <li key={entry.id} className="px-4 py-4 sm:px-6">
                 <div className="flex items-center justify-between mb-1">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{p.user.name || p.user.email}</p>
-                    <p className="text-xs text-gray-500">{p.template.title}</p>
+                    <p className="text-sm font-medium text-gray-900">{entry.user.name || entry.user.email}</p>
+                    <p className="text-xs text-gray-500">{entry.template.title}</p>
                   </div>
-                  <span className="text-sm text-gray-600">{p.completed}/{p.total} ({p.percentage}%)</span>
+                  <span className="text-sm text-gray-600">{entry.completed}/{entry.total} ({entry.percentage}%)</span>
                 </div>
                 <div className="bg-gray-200 rounded-full h-2">
                   <div
-                    className={`rounded-full h-2 ${p.percentage === 100 ? "bg-green-500" : "bg-brand-gold"}`}
-                    style={{ width: `${p.percentage}%` }}
+                    className={`rounded-full h-2 ${entry.percentage === 100 ? "bg-green-500" : "bg-brand-gold"}`}
+                    style={{ width: `${entry.percentage}%` }}
                   />
                 </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  {entry.currentStep
+                    ? `Current stage: ${entry.currentStep.title} (${entry.currentStep.type.replace("_", " ")})`
+                    : "Workflow completed"}
+                </p>
               </li>
             ))}
           </ul>
         ) : (
           <div className="text-center py-12">
-            <h3 className="text-sm font-medium text-gray-900">No checklists assigned</h3>
-            <p className="mt-1 text-sm text-gray-500">Assign a template to an employee above.</p>
+            <h3 className="text-sm font-medium text-gray-900">No workflows assigned</h3>
+            <p className="mt-1 text-sm text-gray-500">Assign a workflow to an employee above.</p>
           </div>
         )}
       </div>

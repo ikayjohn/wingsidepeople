@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { daysUntil, isSameMonthDay, nextBirthdayDate } from "@/lib/birthday-utils"
 import { canAccessAdminArea } from "@/lib/rbac"
 import { getMissingProfileFields } from "@/lib/profile-completion"
+import { average, calculateProgressPercentage } from "@/lib/performance"
 
 type BirthdayUser = {
   id: string
@@ -59,6 +60,47 @@ type RecognitionItem = {
   title: string
   fromUser: { name: string | null; preferredName: string | null }
   toUser: { name: string | null; preferredName: string | null }
+}
+
+type KpiSnapshot = {
+  id: string
+  title: string
+  targetValue: number | null
+  currentValue: number | null
+  unit: string | null
+  status: string
+  period: string
+}
+
+type DepartmentPerformanceItem = {
+  id: string
+  title: string
+  targetValue: number | null
+  currentValue: number | null
+  unit: string | null
+  status: string
+  department: { name: string }
+}
+
+type TrainingEnrollmentItem = {
+  id: string
+  progress: number
+  status: string
+  completedAt: Date | null
+  course: {
+    title: string
+    isMandatory: boolean
+  }
+}
+
+type ReviewItem = {
+  id: string
+  period: string
+  type: string
+  status: string
+  createdAt: Date
+  submittedAt: Date | null
+  reviewer: { name: string | null; preferredName: string | null; email: string }
 }
 
 export default async function DashboardPage() {
@@ -133,6 +175,65 @@ export default async function DashboardPage() {
       },
       take: 100,
     }),
+    prisma.employeeKpi.findMany({
+      where: { userId: session.user.id, status: "active" },
+      orderBy: [{ period: "desc" }, { createdAt: "desc" }],
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        targetValue: true,
+        currentValue: true,
+        unit: true,
+        status: true,
+        period: true,
+      },
+    }),
+    prisma.departmentKpi.findMany({
+      where: { department: { users: { some: { id: session.user.id } } }, status: "active" },
+      orderBy: [{ endDate: "asc" }, { createdAt: "desc" }],
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        targetValue: true,
+        currentValue: true,
+        unit: true,
+        status: true,
+        department: { select: { name: true } },
+      },
+    }),
+    prisma.courseEnrollment.findMany({
+      where: { userId: session.user.id },
+      orderBy: [{ status: "asc" }, { enrolledAt: "desc" }],
+      take: 6,
+      select: {
+        id: true,
+        progress: true,
+        status: true,
+        completedAt: true,
+        course: {
+          select: {
+            title: true,
+            isMandatory: true,
+          },
+        },
+      },
+    }),
+    prisma.performanceReview.findMany({
+      where: { userId: session.user.id, status: { in: ["draft", "submitted"] } },
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+      take: 4,
+      select: {
+        id: true,
+        period: true,
+        type: true,
+        status: true,
+        createdAt: true,
+        submittedAt: true,
+        reviewer: { select: { name: true, preferredName: true, email: true } },
+      },
+    }),
   ])
 
   const profile: ProfileData = results[0].status === "fulfilled" ? results[0].value : null
@@ -142,6 +243,10 @@ export default async function DashboardPage() {
   const policyUpdates: PolicyUpdate[] = results[4].status === "fulfilled" ? results[4].value : []
   const recognitionHighlights: RecognitionItem[] = results[5].status === "fulfilled" ? results[5].value : []
   const birthdayUsers: BirthdayUser[] = results[6].status === "fulfilled" ? results[6].value : []
+  const kpiSnapshot: KpiSnapshot[] = results[7].status === "fulfilled" ? results[7].value : []
+  const departmentPerformance: DepartmentPerformanceItem[] = results[8].status === "fulfilled" ? results[8].value : []
+  const trainingEnrollments: TrainingEnrollmentItem[] = results[9].status === "fulfilled" ? results[9].value : []
+  const upcomingReviews: ReviewItem[] = results[10].status === "fulfilled" ? results[10].value : []
 
   const missingProfileFields = getMissingProfileFields(profile)
 
@@ -156,6 +261,17 @@ export default async function DashboardPage() {
     .filter((u) => u.inDays > 0 && u.inDays <= 7)
     .sort((a, b) => a.inDays - b.inDays)
 
+  const personalKpiAverage = average(
+    kpiSnapshot.map((kpi) => calculateProgressPercentage(kpi.currentValue, kpi.targetValue))
+  )
+  const departmentAverage = average(
+    departmentPerformance.map((kpi) => calculateProgressPercentage(kpi.currentValue, kpi.targetValue))
+  )
+  const completedTraining = trainingEnrollments.filter((item) => item.status === "completed").length
+  const trainingCompletionRate = trainingEnrollments.length
+    ? Math.round((completedTraining / trainingEnrollments.length) * 100)
+    : 0
+
   return (
     <div className="px-4 py-6 sm:px-0">
       <section className="panel-soft mb-6 overflow-hidden p-6 sm:p-8">
@@ -167,6 +283,8 @@ export default async function DashboardPage() {
           Your daily snapshot: announcements, policy updates, team celebrations, and upcoming events.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
+          <QuickLink href="/my-kpis" label="My KPIs" />
+          <QuickLink href="/academy" label="Academy" />
           <QuickLink href="/handbook" label="Handbook" />
           <QuickLink href="/policies" label="Policies" />
           <QuickLink href="/documents" label="Documents" />
@@ -233,6 +351,188 @@ export default async function DashboardPage() {
           </section>
 
           <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <section className="panel lg:col-span-2">
+              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Performance Snapshot</h2>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Monitor KPI progress, department performance, learning completion, and upcoming reviews.
+                  </p>
+                </div>
+                <Link href="/my-kpis" className="interactive-link text-sm font-medium text-brand-brown hover:text-brand-brown-light">
+                  Open performance
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 border-b border-gray-100 px-5 py-4 md:grid-cols-4">
+                <DashboardMetric
+                  label="KPI progress"
+                  value={`${Math.round(personalKpiAverage)}%`}
+                  detail={`${kpiSnapshot.length} active KPI${kpiSnapshot.length === 1 ? "" : "s"}`}
+                />
+                <DashboardMetric
+                  label="Department"
+                  value={`${Math.round(departmentAverage)}%`}
+                  detail={departmentPerformance[0]?.department.name || "No department KPI data"}
+                />
+                <DashboardMetric
+                  label="Training"
+                  value={`${trainingCompletionRate}%`}
+                  detail={`${completedTraining}/${trainingEnrollments.length} courses completed`}
+                />
+                <DashboardMetric
+                  label="Reviews"
+                  value={upcomingReviews.length}
+                  detail={upcomingReviews.length ? "Pending review items" : "No pending reviews"}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 px-5 py-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Active KPIs</h3>
+                    <Link href="/my-kpis" className="text-xs font-medium text-brand-brown hover:text-brand-brown-light">
+                      View all
+                    </Link>
+                  </div>
+                  {kpiSnapshot.length > 0 ? (
+                    <ul className="space-y-3">
+                      {kpiSnapshot.slice(0, 3).map((kpi) => {
+                        const progress = calculateProgressPercentage(kpi.currentValue, kpi.targetValue)
+                        return (
+                          <li key={kpi.id} className="rounded-2xl border border-gray-200 px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{kpi.title}</p>
+                                <p className="mt-1 text-xs text-gray-500">{kpi.period}</p>
+                              </div>
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                {progress}%
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-gray-500">
+                              {kpi.currentValue ?? 0} / {kpi.targetValue ?? 0} {kpi.unit ?? ""}
+                            </p>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No active KPIs assigned yet.</p>
+                  )}
+                </div>
+
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Upcoming Reviews</h3>
+                    <Link href="/my-kpis" className="text-xs font-medium text-brand-brown hover:text-brand-brown-light">
+                      Review center
+                    </Link>
+                  </div>
+                  {upcomingReviews.length > 0 ? (
+                    <ul className="space-y-3">
+                      {upcomingReviews.map((review) => (
+                        <li key={review.id} className="rounded-2xl border border-gray-200 px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{review.period}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {review.type.replaceAll("_", " ")} review with{" "}
+                                {review.reviewer.preferredName || review.reviewer.name || review.reviewer.email}
+                              </p>
+                            </div>
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                              {review.status}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">
+                            Created {new Date(review.createdAt).toLocaleDateString()}
+                            {review.submittedAt ? ` • Submitted ${new Date(review.submittedAt).toLocaleDateString()}` : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No upcoming performance reviews right now.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 border-t border-gray-100 px-5 py-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Department Performance</h3>
+                    <Link href="/my-kpis" className="text-xs font-medium text-brand-brown hover:text-brand-brown-light">
+                      Department view
+                    </Link>
+                  </div>
+                  {departmentPerformance.length > 0 ? (
+                    <ul className="space-y-3">
+                      {departmentPerformance.slice(0, 3).map((kpi) => {
+                        const progress = calculateProgressPercentage(kpi.currentValue, kpi.targetValue)
+                        return (
+                          <li key={kpi.id} className="rounded-2xl border border-gray-200 px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{kpi.title}</p>
+                                <p className="mt-1 text-xs text-gray-500">{kpi.department.name}</p>
+                              </div>
+                              <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                                {progress}%
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-gray-500">
+                              {kpi.currentValue ?? 0} / {kpi.targetValue ?? 0} {kpi.unit ?? ""}
+                            </p>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No department KPI progress available yet.</p>
+                  )}
+                </div>
+
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Training Completion</h3>
+                    <Link href="/academy" className="text-xs font-medium text-brand-brown hover:text-brand-brown-light">
+                      Open academy
+                    </Link>
+                  </div>
+                  {trainingEnrollments.length > 0 ? (
+                    <ul className="space-y-3">
+                      {trainingEnrollments.slice(0, 3).map((item) => (
+                        <li key={item.id} className="rounded-2xl border border-gray-200 px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{item.course.title}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {item.course.isMandatory ? "Mandatory" : "Optional"} course
+                              </p>
+                            </div>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              item.status === "completed"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}>
+                              {item.status.replaceAll("_", " ")}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">
+                            {Math.round(item.progress)}% complete
+                            {item.completedAt ? ` • Completed ${new Date(item.completedAt).toLocaleDateString()}` : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No training enrollments yet.</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
             <section className="panel">
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <h2 className="text-lg font-semibold text-gray-900">Onboarding Progress</h2>
@@ -382,5 +682,23 @@ function QuickLink({ href, label }: { href: string; label: string }) {
     >
       {label}
     </Link>
+  )
+}
+
+function DashboardMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string
+  value: string | number
+  detail: string
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
+      <p className="mt-1 text-xs text-gray-500">{detail}</p>
+    </div>
   )
 }

@@ -3,23 +3,124 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
-import { canAccessAdminSection } from "@/lib/rbac"
+import { useState, useRef, useEffect } from "react"
+import { canAccessAdminSection, type AdminSection } from "@/lib/rbac"
 
-const navItems = [
-  { name: "Dashboard", href: "/admin", section: "dashboard" as const },
-  { name: "Approvals", href: "/admin/employees", section: "approvals" as const },
-  { name: "Announcements", href: "/admin/announcements", section: "announcements" as const },
-  { name: "Handbook", href: "/admin/handbook", section: "handbook" as const },
-  { name: "Policies", href: "/admin/policies", section: "policies" as const },
-  { name: "Documents", href: "/admin/documents", section: "documents" as const },
-  { name: "Onboarding", href: "/admin/onboarding", section: "onboarding" as const },
-  { name: "Events", href: "/admin/events", section: "events" as const },
-  { name: "Leave & Requests", href: "/admin/leave-requests", section: "leave_requests" as const },
+type NavItem = { name: string; href: string; section: AdminSection }
+type NavGroup = { label: string; items: NavItem[] }
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Overview",
+    items: [
+      { name: "Dashboard", href: "/admin", section: "dashboard" },
+      { name: "Analytics", href: "/admin/analytics", section: "analytics" },
+    ],
+  },
+  {
+    label: "People",
+    items: [
+      { name: "Approvals", href: "/admin/employees", section: "approvals" },
+      { name: "Recruitment", href: "/admin/recruitment", section: "recruitment" },
+      { name: "Onboarding", href: "/admin/onboarding", section: "onboarding" },
+      { name: "Offboarding", href: "/admin/offboarding", section: "offboarding" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { name: "Attendance", href: "/admin/attendance", section: "attendance" },
+      { name: "Performance", href: "/admin/performance", section: "performance" },
+      { name: "Academy", href: "/admin/academy", section: "academy" },
+      { name: "Assets", href: "/admin/assets", section: "assets" },
+      { name: "Disciplinary", href: "/admin/disciplinary", section: "disciplinary" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { name: "Announcements", href: "/admin/announcements", section: "announcements" },
+      { name: "Handbook", href: "/admin/handbook", section: "handbook" },
+      { name: "Policies", href: "/admin/policies", section: "policies" },
+      { name: "Documents", href: "/admin/documents", section: "documents" },
+      { name: "Surveys", href: "/admin/surveys", section: "surveys" },
+    ],
+  },
+  {
+    label: "Reviews",
+    items: [
+      { name: "Leave & Requests", href: "/admin/leave-requests", section: "leave_requests" },
+      { name: "Events", href: "/admin/events", section: "events" },
+    ],
+  },
 ]
+
+function AdminDropdown({ group, pathname }: { group: NavGroup; pathname: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
+
+  const isGroupActive = group.items.some(
+    (item) => pathname === item.href || pathname.startsWith(item.href + "/")
+  )
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium ${
+          isGroupActive
+            ? "bg-gradient-to-r from-[#ffe08f] to-[#ffc64d] text-brand-brown"
+            : "text-[#4b5563] hover:-translate-y-0.5 hover:bg-[#f3f7fd] hover:text-[#1f2937]"
+        }`}
+      >
+        {group.label}
+        <svg className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-[#e4eaf3] bg-white py-1 shadow-lg">
+          {group.items.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={`block px-4 py-2 text-sm ${
+                  isActive
+                    ? "bg-[#fff8e1] font-medium text-brand-brown"
+                    : "text-[#4b5563] hover:bg-[#f3f7fd] hover:text-[#1f2937]"
+                }`}
+              >
+                {item.name}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function AdminShellNav({ role }: { role: string }) {
   const pathname = usePathname()
-  const visibleItems = navItems.filter((item) => canAccessAdminSection(role, item.section))
+
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccessAdminSection(role, item.section)),
+    }))
+    .filter((group) => group.items.length > 0)
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#e4eaf3] bg-white/90 backdrop-blur-xl">
@@ -47,42 +148,55 @@ export default function AdminShellNav({ role }: { role: string }) {
           </Link>
         </div>
 
-        <nav className="mt-4 hidden items-center gap-2 overflow-x-auto border-t border-[#edf2f8] pt-4 md:flex">
-          {visibleItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium ${
-                  isActive
-                    ? "bg-gradient-to-r from-[#ffe08f] to-[#ffc64d] text-brand-brown"
-                    : "text-[#4b5563] hover:-translate-y-0.5 hover:bg-[#f3f7fd] hover:text-[#1f2937]"
-                }`}
-              >
-                {item.name}
-              </Link>
-            )
+        {/* Desktop grouped dropdown nav */}
+        <nav className="mt-4 hidden items-center gap-1 border-t border-[#edf2f8] pt-4 md:flex md:flex-wrap">
+          {visibleGroups.map((group) => {
+            if (group.items.length === 1) {
+              const item = group.items[0]
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium ${
+                    isActive
+                      ? "bg-gradient-to-r from-[#ffe08f] to-[#ffc64d] text-brand-brown"
+                      : "text-[#4b5563] hover:-translate-y-0.5 hover:bg-[#f3f7fd] hover:text-[#1f2937]"
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              )
+            }
+            return <AdminDropdown key={group.label} group={group} pathname={pathname} />
           })}
         </nav>
 
-        <nav className="mt-3 grid grid-cols-2 gap-2 border-t border-[#edf2f8] pt-3 md:hidden">
-          {visibleItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`rounded-md px-3 py-2 text-sm font-medium ${
-                  isActive
-                    ? "bg-gradient-to-r from-[#ffe08f] to-[#ffc64d] text-brand-brown"
-                    : "text-[#4b5563] hover:bg-[#f3f7fd] hover:text-[#1f2937]"
-                }`}
-              >
-                {item.name}
-              </Link>
-            )
-          })}
+        {/* Mobile nav */}
+        <nav className="mt-3 border-t border-[#edf2f8] pt-3 md:hidden">
+          {visibleGroups.map((group) => (
+            <div key={group.label} className="mb-2">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9ca3af]">{group.label}</p>
+              <div className="grid grid-cols-2 gap-1">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`rounded-md px-3 py-2 text-sm font-medium ${
+                        isActive
+                          ? "bg-gradient-to-r from-[#ffe08f] to-[#ffc64d] text-brand-brown"
+                          : "text-[#4b5563] hover:bg-[#f3f7fd] hover:text-[#1f2937]"
+                      }`}
+                    >
+                      {item.name}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </div>
     </header>

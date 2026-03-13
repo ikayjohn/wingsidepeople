@@ -53,6 +53,9 @@ model User {
   eventRsvps            EventRsvp[]
   leaveRequests         LeaveRequest[] @relation("LeaveRequestEmployee")
   reviewedLeaveRequests LeaveRequest[] @relation("LeaveRequestReviewer")
+  overtimeRequests      OvertimeRequest[] @relation("OvertimeRequestEmployee")
+  managedOvertimeRequests OvertimeRequest[] @relation("OvertimeRequestManager")
+  reviewedOvertimeRequests OvertimeRequest[] @relation("OvertimeRequestHrReviewer")
   hrRequests            HRRequest[]    @relation("HRRequestEmployee")
   reviewedHrRequests    HRRequest[]    @relation("HRRequestReviewer")
   recognitionsGiven     Recognition[]  @relation("RecognitionFromUser")
@@ -61,6 +64,40 @@ model User {
   birthdayWishesReceived BirthdayWish[] @relation("BirthdayWishToUser")
   auditLogs             AuditLog[]
   documentVersions      DocumentVersion[]
+
+  // Asset Management
+  assignedAssets        AssetAssignment[] @relation("AssetAssignedTo")
+  assetAssignedBy       AssetAssignment[] @relation("AssetAssignedBy")
+
+  // Recruitment
+  jobApplications       JobApplication[]
+  postedJobs            JobOpening[]       @relation("JobPostedBy")
+
+  // Performance & KPIs
+  employeeKpis          EmployeeKpi[]      @relation("KpiEmployee")
+  kpiReviewedBy         EmployeeKpi[]      @relation("KpiReviewer")
+  performanceReviews    PerformanceReview[] @relation("ReviewEmployee")
+  reviewsConducted      PerformanceReview[] @relation("ReviewReviewer")
+
+  // Training Academy
+  courseEnrollments      CourseEnrollment[]
+  assessmentAttempts    AssessmentAttempt[]
+  coursesCreated        Course[]           @relation("CourseCreator")
+
+  // Surveys
+  surveyResponses       SurveyResponse[]
+  surveysCreated        Survey[]           @relation("SurveyCreator")
+  initiatedOffboardingChecklists OffboardingChecklist[] @relation("OffboardingInitiator")
+  approvedOffboardingChecklists  OffboardingChecklist[] @relation("OffboardingFinalApprover")
+
+  // Disciplinary
+  disciplinaryCases     DisciplinaryCase[] @relation("DisciplinaryEmployee")
+  disciplinaryCasesManaged DisciplinaryCase[] @relation("DisciplinaryManager")
+
+  // Offboarding
+  offboardingChecklists OffboardingChecklist[]
+  departmentStrategies  DepartmentStrategy[]
+  attendanceRecords     AttendanceRecord[]
 
   @@index([departmentId, position])
   @@index([role, status])
@@ -72,10 +109,54 @@ model Department {
   name        String   @unique
   code        String?  @unique
   description String?
+  headId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  users       User[]
+  users          User[]
+  departmentKpis DepartmentKpi[]
+  strategies     DepartmentStrategy[]
+  jobOpenings    JobOpening[]
+}
+
+model DepartmentStrategy {
+  id          String   @id @default(cuid())
+  departmentId String
+  title       String
+  summary     String?  @db.Text
+  filename    String
+  filepath    String
+  filesize    Int
+  mimetype    String
+  createdById String?
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdBy  User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([departmentId, publishedAt(sort: Desc)])
+}
+
+model AttendanceRecord {
+  id                 String   @id @default(cuid())
+  userId             String
+  departmentSnapshot String?
+  checkInAt          DateTime
+  checkOutAt         DateTime?
+  workedMinutes      Int?
+  overtimeMinutes    Int      @default(0)
+  status             String   @default("present") // present, incomplete, absent, excused
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, checkInAt(sort: Desc)])
+  @@index([departmentSnapshot, checkInAt(sort: Desc)])
+  @@index([status, checkInAt(sort: Desc)])
 }
 
 model Account {
@@ -247,8 +328,12 @@ model OnboardingTemplate {
 model OnboardingItem {
   id          String  @id @default(cuid())
   templateId  String
+  type        String  @default("reading")
   title       String
   description String?
+  resourceUrl String?
+  content     String? @db.Text
+  config      Json?
   order       Int
 
   template OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
@@ -271,11 +356,17 @@ model EmployeeChecklist {
 }
 
 model ChecklistProgress {
-  id          String    @id @default(cuid())
-  checklistId String
-  itemId      String
-  completed   Boolean   @default(false)
-  completedAt DateTime?
+  id               String    @id @default(cuid())
+  checklistId      String
+  itemId           String
+  completed        Boolean   @default(false)
+  completedAt      DateTime?
+  submissionText   String?   @db.Text
+  submissionData   Json?
+  uploadedFilename String?
+  uploadedFilepath String?
+  uploadedFilesize Int?
+  uploadedMimetype String?
 
   checklist EmployeeChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
   item      OnboardingItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -414,6 +505,33 @@ model HRRequest {
   @@index([status, type, createdAt(sort: Desc)])
 }
 
+model OvertimeRequest {
+  id                String   @id @default(cuid())
+  userId            String
+  lineManagerId     String
+  workDate          DateTime
+  minutes           Int
+  reason            String?  @db.Text
+  status            String   @default("pending_manager")
+  managerDecision   String   @default("pending")
+  managerNotes      String?  @db.Text
+  managerReviewedAt DateTime?
+  hrDecision        String   @default("pending")
+  hrReviewerId      String?
+  hrNotes           String?  @db.Text
+  hrReviewedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user         User  @relation("OvertimeRequestEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  lineManager  User  @relation("OvertimeRequestManager", fields: [lineManagerId], references: [id], onDelete: Restrict)
+  hrReviewer   User? @relation("OvertimeRequestHrReviewer", fields: [hrReviewerId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@index([lineManagerId, managerDecision, createdAt(sort: Desc)])
+  @@index([status, workDate(sort: Desc)])
+}
+
 model Recognition {
   id         String   @id @default(cuid())
   fromUserId String
@@ -442,4 +560,401 @@ model BirthdayWish {
   fromUser User @relation("BirthdayWishFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
 
   @@index([toUserId, createdAt(sort: Desc)])
+}
+
+// ─── Asset Management ────────────────────────────────────────────────
+
+model Asset {
+  id            String   @id @default(cuid())
+  assetCode     String?  @unique
+  name          String
+  category      String   // laptop, phone, furniture, vehicle, etc.
+  serialNumber  String?  @unique
+  brand         String?
+  model         String?
+  purchaseDate  DateTime?
+  purchaseCost  Float?
+  warrantyExpiry DateTime?
+  condition     String   @default("good") // good, fair, damaged, retired
+  status        String   @default("available") // available, assigned, returned, lost, damaged, maintenance, retired
+  location      String?
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assignments   AssetAssignment[]
+
+  @@index([category, status])
+  @@index([status])
+}
+
+model AssetAssignment {
+  id           String    @id @default(cuid())
+  assetId      String
+  assignedToId String
+  assignedById String
+  departmentSnapshot String?
+  assignedAt   DateTime  @default(now())
+  expectedReturnDate DateTime?
+  returnedAt   DateTime?
+  returnCondition String?
+  notes        String?   @db.Text
+  status       String    @default("active") // active, returned, lost
+
+  asset       Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assignedTo  User  @relation("AssetAssignedTo", fields: [assignedToId], references: [id], onDelete: Cascade)
+  assignedBy  User  @relation("AssetAssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+
+  @@index([assetId, status])
+  @@index([assignedToId, status])
+}
+
+// ─── Recruitment / Applicant Tracking ────────────────────────────────
+
+model JobOpening {
+  id              String   @id @default(cuid())
+  title           String
+  departmentId    String?
+  location        String?
+  employmentType  String   @default("full_time") // full_time, part_time, contract, intern
+  description     String   @db.Text
+  requirements    String?  @db.Text
+  salaryMin       Float?
+  salaryMax       Float?
+  status          String   @default("draft") // draft, open, closed, filled
+  postedById      String
+  closingDate     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  department   Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  postedBy     User           @relation("JobPostedBy", fields: [postedById], references: [id])
+  applications JobApplication[]
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model JobApplication {
+  id            String   @id @default(cuid())
+  jobOpeningId  String
+  applicantName String
+  applicantEmail String
+  phone         String?
+  resumeUrl     String?
+  coverLetter   String?  @db.Text
+  stage         String   @default("applied") // applied, screening, interview, assessment, offer, hired, rejected
+  rating        Int?     // 1-5
+  notes         String?  @db.Text
+  referredById  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  jobOpening  JobOpening @relation(fields: [jobOpeningId], references: [id], onDelete: Cascade)
+  referredBy  User?      @relation(fields: [referredById], references: [id], onDelete: SetNull)
+
+  @@index([jobOpeningId, stage])
+  @@index([stage, createdAt(sort: Desc)])
+}
+
+// ─── Performance & KPI System ────────────────────────────────────────
+
+model CompanyGoal {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?  @db.Text
+  targetValue  Float?
+  currentValue Float?
+  unit         String?  // %, count, currency
+  startDate    DateTime
+  endDate      DateTime
+  status       String   @default("active") // active, completed, cancelled
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  departmentKpis DepartmentKpi[]
+
+  @@index([status, endDate])
+}
+
+model DepartmentKpi {
+  id             String   @id @default(cuid())
+  departmentId   String
+  companyGoalId  String?
+  title          String
+  description    String?  @db.Text
+  targetValue    Float?
+  currentValue   Float?
+  unit           String?
+  weight         Float    @default(1)
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  department  Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  companyGoal CompanyGoal? @relation(fields: [companyGoalId], references: [id], onDelete: SetNull)
+  employeeKpis EmployeeKpi[]
+
+  @@index([departmentId, status])
+}
+
+model EmployeeKpi {
+  id              String   @id @default(cuid())
+  userId          String
+  departmentKpiId String?
+  title           String
+  description     String?  @db.Text
+  targetValue     Float?
+  currentValue    Float?
+  unit            String?
+  weight          Float    @default(1)
+  period          String   // Q1-2026, H1-2026, 2026
+  status          String   @default("active") // active, completed, cancelled
+  selfRating      Int?     // 1-5
+  managerRating   Int?     // 1-5
+  reviewedById    String?
+  reviewNotes     String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user          User           @relation("KpiEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy    User?          @relation("KpiReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  departmentKpi DepartmentKpi? @relation(fields: [departmentKpiId], references: [id], onDelete: SetNull)
+
+  @@index([userId, period, status])
+  @@index([departmentKpiId])
+}
+
+model PerformanceReview {
+  id           String   @id @default(cuid())
+  userId       String
+  reviewerId   String
+  period       String   // Q1-2026, H1-2026, Annual-2026
+  type         String   @default("quarterly") // quarterly, mid_year, annual, probation
+  overallRating Int?    // 1-5
+  strengths    String?  @db.Text
+  improvements String?  @db.Text
+  goals        String?  @db.Text
+  comments     String?  @db.Text
+  status       String   @default("draft") // draft, submitted, acknowledged
+  submittedAt  DateTime?
+  acknowledgedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user     User @relation("ReviewEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ReviewReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period, type])
+  @@index([userId, status])
+  @@index([reviewerId, status])
+}
+
+// ─── Training Academy ────────────────────────────────────────────────
+
+model Course {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?  @db.Text
+  category     String   // technical, compliance, soft_skills, onboarding
+  learningPath String?  // onboarding, compliance, leadership, engineering, etc.
+  department   String?
+  position     String?
+  thumbnail    String?
+  duration     Int?     // minutes
+  difficulty   String   @default("beginner") // beginner, intermediate, advanced
+  isPublished  Boolean  @default(false)
+  isMandatory  Boolean  @default(false)
+  certificateTitle String?
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy    User              @relation("CourseCreator", fields: [createdById], references: [id])
+  modules      CourseModule[]
+  enrollments  CourseEnrollment[]
+  assessments  Assessment[]
+
+  @@index([category, isPublished])
+}
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  courseId   String
+  title      String
+  content    String?  @db.Text
+  videoUrl   String?
+  resourceUrl String?
+  order      Int
+  duration   Int?     // minutes
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, order])
+}
+
+model CourseEnrollment {
+  id                String    @id @default(cuid())
+  userId            String
+  courseId          String
+  progress          Float     @default(0) // 0-100
+  completedModules  String? // comma-separated module IDs
+  status            String    @default("enrolled") // enrolled, in_progress, completed
+  enrolledAt        DateTime  @default(now())
+  completedAt       DateTime?
+  certificateAwardedAt DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId, status])
+}
+
+model Assessment {
+  id        String   @id @default(cuid())
+  courseId   String
+  title      String
+  description String?
+  passingScore Int    @default(70) // percentage
+  timeLimit  Int?    // minutes
+  questions  String  @db.Text // JSON array of questions
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  course   Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attempts AssessmentAttempt[]
+
+  @@index([courseId])
+}
+
+model AssessmentAttempt {
+  id           String   @id @default(cuid())
+  assessmentId String
+  userId       String
+  answers      String?  @db.Text // JSON
+  score        Float?
+  passed       Boolean?
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId, userId])
+}
+
+// ─── Surveys & Exit Interviews ───────────────────────────────────────
+
+model Survey {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  type        String   @default("engagement") // onboarding_experience, job_satisfaction, engagement, exit, pulse, feedback
+  questions   String   @db.Text // JSON array of questions
+  isAnonymous Boolean  @default(true)
+  isActive    Boolean  @default(false)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User            @relation("SurveyCreator", fields: [createdById], references: [id])
+  responses SurveyResponse[]
+  linkedOffboardingChecklists OffboardingChecklist[] @relation("OffboardingExitSurvey")
+
+  @@index([type, isActive])
+}
+
+model SurveyResponse {
+  id        String   @id @default(cuid())
+  surveyId  String
+  userId    String?  // null if anonymous
+  responseToken String?
+  answers   String   @db.Text // JSON
+  submittedAt DateTime @default(now())
+
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([surveyId, submittedAt(sort: Desc)])
+  @@index([surveyId, responseToken])
+}
+
+// ─── Disciplinary Case Management ────────────────────────────────────
+
+model DisciplinaryCase {
+  id           String   @id @default(cuid())
+  employeeId   String
+  managedById  String
+  type         String   // verbal_warning, written_warning, suspension, termination, pip
+  title        String
+  description  String   @db.Text
+  incidentDate DateTime
+  severity     String   @default("minor") // minor, moderate, serious, gross
+  status       String   @default("open") // open, investigation, hearing, resolved, appealed, closed
+  visibleToEmployee Boolean @default(false)
+  outcome      String?  @db.Text
+  appealNotes  String?  @db.Text
+  resolvedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee  User @relation("DisciplinaryEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  managedBy User @relation("DisciplinaryManager", fields: [managedById], references: [id])
+
+  actions DisciplinaryAction[]
+
+  @@index([employeeId, status])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model DisciplinaryAction {
+  id        String   @id @default(cuid())
+  caseId    String
+  action    String   // verbal_warning_issued, written_warning_issued, meeting_scheduled, pip_started, suspension_served, hearing_date_set
+  visibleToEmployee Boolean @default(false)
+  notes     String?  @db.Text
+  dueDate   DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+
+  case DisciplinaryCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+}
+
+// ─── Offboarding ─────────────────────────────────────────────────────
+
+model OffboardingChecklist {
+  id          String    @id @default(cuid())
+  userId      String
+  initiatedById String?
+  reason      String    // resignation, termination, contract_end, retirement
+  lastDay     DateTime
+  status      String    @default("in_progress") // in_progress, pending_hr_approval, completed
+  items       String    @db.Text // JSON array of checklist items with completion status
+  exitInterviewId String?
+  exitInterviewCompletedAt DateTime?
+  assetsClearedAt DateTime?
+  finalHrApprovedById String?
+  finalApprovalNotes String?   @db.Text
+  finalHrApprovedAt DateTime?
+  notes       String?   @db.Text
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  initiatedBy User? @relation("OffboardingInitiator", fields: [initiatedById], references: [id], onDelete: SetNull)
+  exitInterview Survey? @relation("OffboardingExitSurvey", fields: [exitInterviewId], references: [id], onDelete: SetNull)
+  finalHrApprovedBy User? @relation("OffboardingFinalApprover", fields: [finalHrApprovedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([exitInterviewId])
 }

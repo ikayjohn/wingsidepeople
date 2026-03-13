@@ -26,8 +26,24 @@ interface HrRequest {
   createdAt: string
 }
 
+interface OvertimeRequest {
+  id: string
+  workDate: string
+  minutes: number
+  reason: string | null
+  status: string
+  managerDecision: string
+  managerNotes: string | null
+  hrDecision: string
+  hrNotes: string | null
+  lineManager: { id: string; name: string | null; email: string } | null
+  hrReviewer: { id: string; name: string | null; email: string } | null
+  createdAt: string
+}
+
 export default function LeavePage() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
+  const [overtimeRequests, setOvertimeRequests] = useState<OvertimeRequest[]>([])
   const [hrRequests, setHrRequests] = useState<HrRequest[]>([])
   const [balance, setBalance] = useState({ allowance: 20, used: 0, remaining: 20 })
   const [loading, setLoading] = useState(true)
@@ -40,6 +56,11 @@ export default function LeavePage() {
   const [leaveReason, setLeaveReason] = useState("")
   const [leaveSubmitting, setLeaveSubmitting] = useState(false)
 
+  const [overtimeDate, setOvertimeDate] = useState("")
+  const [overtimeMinutes, setOvertimeMinutes] = useState("120")
+  const [overtimeReason, setOvertimeReason] = useState("")
+  const [overtimeSubmitting, setOvertimeSubmitting] = useState(false)
+
   const [requestType, setRequestType] = useState("hr")
   const [requestTitle, setRequestTitle] = useState("")
   const [requestDescription, setRequestDescription] = useState("")
@@ -50,14 +71,17 @@ export default function LeavePage() {
     setLoading(true)
     setError("")
     try {
-      const [leaveRes, requestRes] = await Promise.all([
+      const [leaveRes, overtimeRes, requestRes] = await Promise.all([
         fetch("/api/leave"),
+        fetch("/api/overtime"),
         fetch("/api/requests"),
       ])
-      if (!leaveRes.ok || !requestRes.ok) throw new Error("Failed to load data")
+      if (!leaveRes.ok || !overtimeRes.ok || !requestRes.ok) throw new Error("Failed to load data")
       const leaveData = await leaveRes.json()
+      const overtimeData = await overtimeRes.json()
       const requestData = await requestRes.json()
       setLeaveRequests(leaveData.requests || [])
+      setOvertimeRequests(overtimeData || [])
       setBalance(leaveData.leaveBalance || { allowance: 20, used: 0, remaining: 20 })
       setHrRequests(requestData || [])
     } catch {
@@ -139,8 +163,45 @@ export default function LeavePage() {
     }
   }
 
+  const submitOvertime = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setOvertimeSubmitting(true)
+    setError("")
+    setMessage("")
+    try {
+      const res = await fetch("/api/overtime", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workDate: overtimeDate,
+          minutes: Number(overtimeMinutes),
+          reason: overtimeReason || null,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error || "Failed to submit overtime log")
+        return
+      }
+      setOvertimeDate("")
+      setOvertimeMinutes("120")
+      setOvertimeReason("")
+      setMessage("Overtime log submitted")
+      fetchData()
+    } catch {
+      setError("Failed to submit overtime log")
+    } finally {
+      setOvertimeSubmitting(false)
+    }
+  }
+
   const cancelLeave = async (id: string) => {
     const res = await fetch(`/api/leave/${id}`, { method: "DELETE" })
+    if (res.ok) fetchData()
+  }
+
+  const cancelOvertime = async (id: string) => {
+    const res = await fetch(`/api/overtime/${id}`, { method: "DELETE" })
     if (res.ok) fetchData()
   }
 
@@ -152,7 +213,7 @@ export default function LeavePage() {
     <div className="px-4 py-6 sm:px-0 space-y-6">
       <div className="panel-soft p-6">
         <h1 className="text-3xl font-bold text-gray-900">Leave & Requests</h1>
-        <p className="mt-2 text-gray-600">Apply for leave, track approvals, and submit employee requests.</p>
+        <p className="mt-2 text-gray-600">Apply for leave, log overtime, track approvals, and submit employee requests.</p>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -164,7 +225,7 @@ export default function LeavePage() {
         <StatCard label="Remaining" value={`${balance.remaining} days`} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="panel p-5">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Apply for Leave</h2>
           <form onSubmit={submitLeave} className="space-y-3">
@@ -182,6 +243,18 @@ export default function LeavePage() {
             <textarea value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} rows={3} placeholder="Reason (optional)" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
             <button disabled={leaveSubmitting} className="rounded-md bg-brand-gold px-4 py-2 text-sm font-medium text-brand-brown disabled:opacity-50">
               {leaveSubmitting ? "Submitting..." : "Submit Leave Request"}
+            </button>
+          </form>
+        </div>
+
+        <div className="panel p-5">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Log Overtime / Extra Hours</h2>
+          <form onSubmit={submitOvertime} className="space-y-3">
+            <input type="date" required value={overtimeDate} onChange={(e) => setOvertimeDate(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+            <input type="number" min={30} step={30} max={960} required value={overtimeMinutes} onChange={(e) => setOvertimeMinutes(e.target.value)} placeholder="Minutes worked beyond normal hours" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+            <textarea value={overtimeReason} onChange={(e) => setOvertimeReason(e.target.value)} rows={3} placeholder="Work completed / reason (optional)" className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+            <button disabled={overtimeSubmitting} className="rounded-md bg-brand-gold px-4 py-2 text-sm font-medium text-brand-brown disabled:opacity-50">
+              {overtimeSubmitting ? "Submitting..." : "Submit Overtime Log"}
             </button>
           </form>
         </div>
@@ -212,7 +285,7 @@ export default function LeavePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <ListCard
           title="My Leave Requests"
           emptyLabel="No leave requests yet."
@@ -233,6 +306,30 @@ export default function LeavePage() {
         />
 
         <ListCard
+          title="My Overtime Logs"
+          emptyLabel="No overtime logs yet."
+          rows={overtimeRequests.map((item) => (
+            <div key={item.id} className="interactive-row rounded-md px-2 py-2 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{formatMinutes(item.minutes)} logged</p>
+                <p className="text-xs text-gray-500">
+                  {new Date(item.workDate).toLocaleDateString()} • Status: {humanizeStatus(item.status)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Manager: {humanizeDecision(item.managerDecision)}
+                  {" • "}
+                  HR: {humanizeDecision(item.hrDecision)}
+                </p>
+                {item.reason ? <p className="mt-1 text-xs text-gray-600">{item.reason}</p> : null}
+              </div>
+              {item.status === "pending_manager" && (
+                <button onClick={() => cancelOvertime(item.id)} className="text-xs text-red-600 hover:text-red-800">Cancel</button>
+              )}
+            </div>
+          ))}
+        />
+
+        <ListCard
           title="My Requests & Reports"
           emptyLabel="No requests submitted yet."
           rows={hrRequests.map((item) => (
@@ -246,6 +343,20 @@ export default function LeavePage() {
       </div>
     </div>
   )
+}
+
+function formatMinutes(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return `${hours}h ${remainingMinutes}m`
+}
+
+function humanizeStatus(value: string) {
+  return value.replaceAll("_", " ")
+}
+
+function humanizeDecision(value: string) {
+  return value === "pending" ? "pending" : humanizeStatus(value)
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {

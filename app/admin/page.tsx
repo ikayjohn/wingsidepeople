@@ -96,6 +96,21 @@ export default async function AdminDashboard() {
       ),
     },
     {
+      href: "/admin/recruitment",
+      section: "recruitment" as const,
+      title: "Recruitment",
+      description: "Jobs, applicants, and hiring stages",
+      iconClass: "bg-fuchsia-100 text-fuchsia-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M18 9V5a2 2 0 00-2-2H8a2 2 0 00-2 2v4m12 0v9a2 2 0 01-2 2H8a2 2 0 01-2-2V9m12 0H6m6 4v4m-2-2h4"
+        />
+      ),
+    },
+    {
       href: "/admin/announcements",
       section: "announcements" as const,
       title: "Announcements",
@@ -167,6 +182,126 @@ export default async function AdminDashboard() {
           strokeLinejoin="round"
           strokeWidth={2}
           d="M17 20h5V4H2v16h5m10 0v-8m0 8H7m10 0h-2M7 20H5m2 0v-8m0 8h2m8-12h-2M7 8h10"
+        />
+      ),
+    },
+    {
+      href: "/admin/performance",
+      section: "performance" as const,
+      title: "Performance",
+      description: "Goals, KPIs, and review cycles",
+      iconClass: "bg-blue-100 text-blue-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M11 19V6m0 13l-4-4m4 4l4-4M5 12V8m14 4V4"
+        />
+      ),
+    },
+    {
+      href: "/admin/academy",
+      section: "academy" as const,
+      title: "Academy",
+      description: "Courses, assessments, and enrollments",
+      iconClass: "bg-sky-100 text-sky-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0118 17.5c0 .689.058 1.364.169 2.02L12 22l-6.169-2.48A12.08 12.08 0 016 17.5c0-2.211.6-4.282 1.84-6.922L12 14z"
+        />
+      ),
+    },
+    {
+      href: "/admin/attendance",
+      section: "attendance" as const,
+      title: "Attendance",
+      description: "Check-ins, check-outs, and overtime oversight",
+      iconClass: "bg-lime-100 text-lime-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      ),
+    },
+    {
+      href: "/admin/assets",
+      section: "assets" as const,
+      title: "Assets",
+      description: "Inventory, assignments, and returns",
+      iconClass: "bg-orange-100 text-orange-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"
+        />
+      ),
+    },
+    {
+      href: "/admin/surveys",
+      section: "surveys" as const,
+      title: "Surveys",
+      description: "Engagement, pulse, and exit interviews",
+      iconClass: "bg-teal-100 text-teal-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4-4-4z"
+        />
+      ),
+    },
+    {
+      href: "/admin/analytics",
+      section: "analytics" as const,
+      title: "Analytics",
+      description: "Headcount and operational insights",
+      iconClass: "bg-cyan-100 text-cyan-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M11 19V6m4 13V10m4 9V4M7 19v-4"
+        />
+      ),
+    },
+    {
+      href: "/admin/disciplinary",
+      section: "disciplinary" as const,
+      title: "Disciplinary",
+      description: "Cases, actions, and outcomes",
+      iconClass: "bg-rose-100 text-rose-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 8v4m0 4h.01M5.07 19h13.86c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.73 3z"
+        />
+      ),
+    },
+    {
+      href: "/admin/offboarding",
+      section: "offboarding" as const,
+      title: "Offboarding",
+      description: "Exit workflow and final-day readiness",
+      iconClass: "bg-slate-100 text-slate-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"
         />
       ),
     },

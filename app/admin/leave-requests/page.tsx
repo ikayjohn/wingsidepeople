@@ -25,8 +25,25 @@ interface HrItem {
   user: { id: string; name: string | null; email: string; department: string | null; position: string | null }
 }
 
+interface OvertimeItem {
+  id: string
+  workDate: string
+  minutes: number
+  reason: string | null
+  status: string
+  managerDecision: string
+  managerNotes: string | null
+  hrDecision: string
+  hrNotes: string | null
+  user: { id: string; name: string | null; email: string; department: string | null; position: string | null; managerId: string | null }
+  lineManager: { id: string; name: string | null; email: string }
+  hrReviewer: { id: string; name: string | null; email: string } | null
+  reviewStage: "manager" | "hr" | null
+}
+
 export default function AdminLeaveRequestsPage() {
   const [leaveItems, setLeaveItems] = useState<LeaveItem[]>([])
+  const [overtimeItems, setOvertimeItems] = useState<OvertimeItem[]>([])
   const [hrItems, setHrItems] = useState<HrItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -35,12 +52,14 @@ export default function AdminLeaveRequestsPage() {
     setLoading(true)
     setError("")
     try {
-      const [leaveRes, reqRes] = await Promise.all([
+      const [leaveRes, overtimeRes, reqRes] = await Promise.all([
         fetch("/api/admin/leave"),
+        fetch("/api/admin/overtime"),
         fetch("/api/admin/requests"),
       ])
-      if (!leaveRes.ok || !reqRes.ok) throw new Error("Failed to load")
+      if (!leaveRes.ok || !overtimeRes.ok || !reqRes.ok) throw new Error("Failed to load")
       setLeaveItems(await leaveRes.json())
+      setOvertimeItems(await overtimeRes.json())
       setHrItems(await reqRes.json())
     } catch {
       setError("Failed to load review queues")
@@ -69,6 +88,16 @@ export default function AdminLeaveRequestsPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, response: response || null }),
+    })
+    if (res.ok) fetchData()
+  }
+
+  const reviewOvertime = async (id: string, decision: "approved" | "rejected") => {
+    const notes = prompt("Review notes (optional):") || ""
+    const res = await fetch(`/api/admin/overtime/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision, notes: notes || null }),
     })
     if (res.ok) fetchData()
   }
@@ -115,6 +144,53 @@ export default function AdminLeaveRequestsPage() {
       </section>
 
       <section className="rounded-lg bg-white p-5 shadow">
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">Overtime Logs</h2>
+        {overtimeItems.length > 0 ? (
+          <ul className="divide-y divide-gray-200">
+            {overtimeItems.map((item) => {
+              const canManagerReview = item.reviewStage === "manager"
+              const canHrReview = item.reviewStage === "hr"
+
+              return (
+                <li key={item.id} className="py-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {item.user.name || item.user.email} • {formatMinutes(item.minutes)} • {new Date(item.workDate).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {item.user.department || "No department"} • Status: {humanizeStatus(item.status)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Manager: {humanizeStatus(item.managerDecision)}
+                        {" • "}
+                        HR: {humanizeStatus(item.hrDecision)}
+                      </p>
+                      {item.reason ? <p className="mt-1 text-xs text-gray-600">Reason: {item.reason}</p> : null}
+                      {item.managerNotes ? <p className="mt-1 text-xs text-gray-600">Manager notes: {item.managerNotes}</p> : null}
+                      {item.hrNotes ? <p className="mt-1 text-xs text-gray-600">HR notes: {item.hrNotes}</p> : null}
+                    </div>
+                    {(canManagerReview || canHrReview) && (
+                      <div className="flex gap-2">
+                        <button onClick={() => reviewOvertime(item.id, "approved")} className="rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-200">
+                          {canManagerReview ? "Manager Approve" : "HR Confirm"}
+                        </button>
+                        <button onClick={() => reviewOvertime(item.id, "rejected")} className="rounded-md bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200">
+                          {canManagerReview ? "Manager Reject" : "HR Reject"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500">No overtime logs to review.</p>
+        )}
+      </section>
+
+      <section className="rounded-lg bg-white p-5 shadow">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">HR Requests / Reports</h2>
         {hrItems.length > 0 ? (
           <ul className="divide-y divide-gray-200">
@@ -144,4 +220,14 @@ export default function AdminLeaveRequestsPage() {
       </section>
     </div>
   )
+}
+
+function formatMinutes(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return `${hours}h ${remainingMinutes}m`
+}
+
+function humanizeStatus(value: string) {
+  return value.replaceAll("_", " ")
 }

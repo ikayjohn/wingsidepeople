@@ -1,43 +1,44 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/admin-auth"
+import { calculateChecklistStats, getSortedProgress } from "@/lib/onboarding-workflow"
 
-type ChecklistProgressItem = {
-  completed: boolean
-}
+const checklistInclude = Prisma.validator<Prisma.EmployeeChecklistInclude>()({
+  user: { select: { id: true, name: true, email: true } },
+  template: { select: { id: true, title: true } },
+  progress: {
+    include: {
+      item: true,
+    },
+  },
+})
 
-type ChecklistWithRelations = {
-  id: string
-  assignedAt: Date
-  user: { id: string; name: string | null; email: string }
-  template: { id: string; title: string }
-  progress: ChecklistProgressItem[]
-}
+type ChecklistWithRelations = Prisma.EmployeeChecklistGetPayload<{
+  include: typeof checklistInclude
+}>
 
 export async function GET(req: Request) {
   const { error } = await requireAdmin(req)
   if (error) return error
 
   const checklists = await prisma.employeeChecklist.findMany({
-    include: {
-      user: { select: { id: true, name: true, email: true } },
-      template: { select: { id: true, title: true } },
-      progress: true,
-    },
+    include: checklistInclude,
     orderBy: { assignedAt: "desc" },
   })
 
-  const result = (checklists as ChecklistWithRelations[]).map((c: ChecklistWithRelations) => {
-    const total = c.progress.length
-    const completed = c.progress.filter((p: ChecklistProgressItem) => p.completed).length
+  const result = (checklists as ChecklistWithRelations[]).map((c) => {
+    const stats = calculateChecklistStats(c)
+    const currentStep = getSortedProgress(c.progress).find((item) => !item.completed)?.item ?? null
     return {
       id: c.id,
       user: c.user,
       template: c.template,
       assignedAt: c.assignedAt,
-      total,
-      completed,
-      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+      total: stats.total,
+      completed: stats.completed,
+      percentage: stats.percentage,
+      currentStep,
     }
   })
 

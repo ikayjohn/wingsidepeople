@@ -10,6 +10,15 @@ export type AdminSection =
   | "onboarding"
   | "events"
   | "leave_requests"
+  | "recruitment"
+  | "assets"
+  | "attendance"
+  | "performance"
+  | "academy"
+  | "surveys"
+  | "disciplinary"
+  | "offboarding"
+  | "analytics"
 
 export function normalizeRole(role: string | null | undefined): UserRole {
   if (!role) return "employee"
@@ -25,6 +34,27 @@ export function canAccessAdminArea(role: string | null | undefined) {
   return hasAnyRole(role, ["manager", "hr", "admin", "super_admin"])
 }
 
+const ALL_SECTIONS: AdminSection[] = [
+  "dashboard",
+  "approvals",
+  "announcements",
+  "handbook",
+  "policies",
+  "documents",
+  "onboarding",
+  "events",
+  "leave_requests",
+  "recruitment",
+  "assets",
+  "attendance",
+  "performance",
+  "academy",
+  "surveys",
+  "disciplinary",
+  "offboarding",
+  "analytics",
+]
+
 export function canAccessAdminSection(
   role: string | null | undefined,
   section: AdminSection
@@ -36,40 +66,13 @@ export function canAccessAdminSection(
       "dashboard",
       "approvals",
       "leave_requests",
+      "attendance",
+      "performance",
+      "disciplinary",
     ],
-    hr: [
-      "dashboard",
-      "approvals",
-      "announcements",
-      "handbook",
-      "policies",
-      "documents",
-      "onboarding",
-      "events",
-      "leave_requests",
-    ],
-    admin: [
-      "dashboard",
-      "approvals",
-      "announcements",
-      "handbook",
-      "policies",
-      "documents",
-      "onboarding",
-      "events",
-      "leave_requests",
-    ],
-    super_admin: [
-      "dashboard",
-      "approvals",
-      "announcements",
-      "handbook",
-      "policies",
-      "documents",
-      "onboarding",
-      "events",
-      "leave_requests",
-    ],
+    hr: ALL_SECTIONS,
+    admin: ALL_SECTIONS,
+    super_admin: ALL_SECTIONS,
   }
   return byRole[normalized].includes(section)
 }
