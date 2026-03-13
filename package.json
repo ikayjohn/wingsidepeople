@@ -7,6 +7,8 @@
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
+    "backfill:avatars": "node scripts/backfill-avatar-urls.mjs",
+    "test": "vitest run",
     "start": "next start -p 3001",
     "lint": "eslint"
   },
@@ -40,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.0"
   }
 }

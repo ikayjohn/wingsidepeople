@@ -52,6 +52,7 @@ model User {
   documentAcknowledgments DocumentAcknowledgment[]
   eventRsvps            EventRsvp[]
   leaveRequests         LeaveRequest[] @relation("LeaveRequestEmployee")
+  managedLeaveRequests  LeaveRequest[] @relation("LeaveRequestLineManager")
   reviewedLeaveRequests LeaveRequest[] @relation("LeaveRequestReviewer")
   overtimeRequests      OvertimeRequest[] @relation("OvertimeRequestEmployee")
   managedOvertimeRequests OvertimeRequest[] @relation("OvertimeRequestManager")
@@ -104,6 +105,57 @@ model User {
   @@index([managerId])
 }
 
+model WorkLocation {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String?  @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder, name])
+}
+
+model CompanyProfile {
+  id                   String   @id @default("default")
+  companyName          String   @default("Wingside")
+  legalName            String?
+  tagline              String?
+  supportEmail         String?
+  supportPhone         String?
+  websiteUrl           String?
+  headquartersLocation String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model EmploymentDefaults {
+  id                        String   @id @default("default")
+  defaultEmploymentType     String   @default("full_time")
+  defaultAnnualLeaveAllowance Int    @default(20)
+  standardWorkWeekDays      Int      @default(5)
+  standardWorkHoursPerDay   Int      @default(8)
+  defaultProbationMonths    Int      @default(3)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model SecurityAccessRule {
+  id                         String   @id @default("default")
+  allowSelfServiceRegistration Boolean @default(true)
+  allowedEmailDomain         String   @default("wingside.ng")
+  employeeIdPrefix           String   @default("WS")
+  employeeIdDigits           Int      @default(4)
+  passwordMinLength          Int      @default(8)
+  autoAssignManagersFromOrgChart Boolean @default(true)
+  workflowFallbackReviewerRole String? @default("hr")
+  enforceAdminIpAllowlist    Boolean  @default(false)
+  adminIpAllowlist           String?  @db.Text
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
 model Department {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -117,6 +169,23 @@ model Department {
   departmentKpis DepartmentKpi[]
   strategies     DepartmentStrategy[]
   jobOpenings    JobOpening[]
+}
+
+model OrgRole {
+  id           String   @id @default(cuid())
+  title        String
+  department   String
+  parentRoleId String?
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  parentRole OrgRole?  @relation("OrgRoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull)
+  childRoles OrgRole[] @relation("OrgRoleHierarchy")
+
+  @@index([department, sortOrder, title])
+  @@index([parentRoleId, sortOrder])
 }
 
 model DepartmentStrategy {
@@ -465,12 +534,17 @@ model AuditLog {
 model LeaveRequest {
   id           String   @id @default(cuid())
   userId       String
+  lineManagerId String?
   leaveType    String
   startDate    DateTime
   endDate      DateTime
   days         Int
   reason       String?  @db.Text
-  status       String   @default("pending")
+  status       String   @default("pending_manager")
+  managerDecision String @default("pending")
+  managerNotes String? @db.Text
+  managerReviewedAt DateTime?
+  hrDecision   String   @default("pending")
   reviewedById String?
   reviewNotes  String?  @db.Text
   reviewedAt   DateTime?
@@ -478,9 +552,11 @@ model LeaveRequest {
   updatedAt    DateTime @updatedAt
 
   user       User  @relation("LeaveRequestEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  lineManager User? @relation("LeaveRequestLineManager", fields: [lineManagerId], references: [id], onDelete: SetNull)
   reviewedBy User? @relation("LeaveRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([userId, status, createdAt(sort: Desc)])
+  @@index([lineManagerId, managerDecision, createdAt(sort: Desc)])
   @@index([status, startDate])
 }
 

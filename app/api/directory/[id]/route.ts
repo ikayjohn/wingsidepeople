@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canEditOtherProfiles, hasAnyRole } from "@/lib/rbac"
+import { normalizeUserImage } from "@/lib/avatar"
 
 export async function GET(
   req: Request,
@@ -58,7 +59,7 @@ export async function GET(
     name: user.name,
     preferredName: user.preferredName,
     email: user.email,
-    image: user.image,
+    image: normalizeUserImage(user.image, user.id),
     role: user.role,
     phone: user.phone,
     address: canViewRestricted || isSelf ? user.address : null,

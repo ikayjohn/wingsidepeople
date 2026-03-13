@@ -1,9 +1,13 @@
 import { auth } from "@/lib/auth"
+import { getEmploymentDefaults, getSecurityAccessRules } from "@/lib/admin-settings"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import ProfileForm from "@/components/ProfileForm"
 import ProfilePhotoUpload from "@/components/ProfilePhotoUpload"
 import Link from "next/link"
+import { hasPrismaDelegates } from "@/lib/prisma-runtime"
+import { normalizeUserImage } from "@/lib/avatar"
+import { getOrgDepartments, getOrgRoles } from "@/lib/org-structure-data"
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -37,8 +41,23 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login")
 
+  const [employmentDefaults, securityRules, workLocations, orgDepartments, orgRoles] = await Promise.all([
+    getEmploymentDefaults(),
+    getSecurityAccessRules(),
+    hasPrismaDelegates("workLocation")
+      ? prisma.workLocation.findMany({
+          where: { isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          select: { name: true },
+        })
+      : Promise.resolve([] as Array<{ name: string }>),
+    getOrgDepartments(),
+    getOrgRoles(),
+  ])
+
   const serializedUser = {
     ...user,
+    image: normalizeUserImage(user.image, user.id),
     birthday: user.birthday ? user.birthday.toISOString().split("T")[0] : null,
     employmentStartDate: user.employmentStartDate ? user.employmentStartDate.toISOString().split("T")[0] : null,
     createdAt: user.createdAt.toISOString(),
@@ -85,7 +104,15 @@ export default async function ProfilePage() {
         </div>
 
         <div className="lg:col-span-2">
-          <ProfileForm user={serializedUser} />
+          <ProfileForm
+            user={serializedUser}
+            workLocations={workLocations.map((item) => item.name)}
+            orgDepartments={orgDepartments}
+            orgRoles={orgRoles}
+            defaultEmploymentType={employmentDefaults.defaultEmploymentType}
+            employeeIdPrefix={securityRules.employeeIdPrefix}
+            employeeIdDigits={securityRules.employeeIdDigits}
+          />
         </div>
       </div>
     </div>

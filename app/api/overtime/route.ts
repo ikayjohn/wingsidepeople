@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { createNotification } from "@/lib/notifications"
+import { ensureEmployeeHasManager } from "@/lib/workflow-routing"
 
 const overtimeSchema = z.object({
   workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -39,25 +40,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid work date" }, { status: 400 })
     }
 
-    const employee = await prisma.user.findUnique({
-      where: { id: session!.user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        managerId: true,
-        manager: { select: { id: true, name: true, email: true } },
-      },
-    })
-
-    if (!employee?.managerId || !employee.manager) {
-      return NextResponse.json({ error: "You need an assigned line manager before logging overtime." }, { status: 400 })
+    const routing = await ensureEmployeeHasManager(session!.user.id, "overtime")
+    if (routing.error || !routing.employee?.managerId || !routing.employee.manager) {
+      return NextResponse.json({ error: routing.error || "Missing line manager." }, { status: 400 })
     }
+    const employee = routing.employee!
+    const managerId = employee.managerId as string
+    const manager = employee.manager!
 
     const request = await prisma.overtimeRequest.create({
       data: {
-        userId: employee.id,
-        lineManagerId: employee.managerId,
+        userId: session!.user.id,
+        lineManagerId: managerId,
         workDate,
         minutes: data.minutes,
         reason: data.reason || null,
@@ -69,7 +63,7 @@ export async function POST(req: Request) {
     })
 
     await createNotification({
-      userId: employee.manager.id,
+      userId: manager.id,
       type: "overtime_request",
       title: "New overtime log awaiting approval",
       message: `${request.user.name || request.user.email} logged ${request.minutes} overtime minutes for ${data.workDate}.`,

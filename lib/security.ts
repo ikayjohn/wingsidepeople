@@ -15,7 +15,7 @@ export function isIpAllowed(ip: string | null, allowlistRaw: string | undefined)
   if (!ip) return false
 
   const allowlist = allowlistRaw
-    .split(",")
+    .split(/[\n,]+/)
     .map((v) => v.trim())
     .filter(Boolean)
 

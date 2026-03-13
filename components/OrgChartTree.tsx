@@ -1,7 +1,52 @@
 "use client"
 
 import Image from "next/image"
-import type { OrgNode } from "@/app/org-chart/page"
+import type { OrgNode } from "@/lib/org-chart"
+
+type HierarchyRow = {
+  id: string
+  depth: number
+  name: string
+  position: string | null
+  occupantSummary: string | null
+  image: string | null
+  headcount: number
+  directReports: number
+  reportsCount: number
+}
+
+function flattenTree(nodes: OrgNode[], depth = 0): HierarchyRow[] {
+  return nodes.flatMap((node) => [
+    {
+      id: node.id,
+      depth,
+      name: node.name,
+      position: node.position,
+      occupantSummary: node.occupantSummary,
+      image: node.image,
+      headcount: node.headcount,
+      directReports: node.children.length,
+      reportsCount: node.reportsCount,
+    },
+    ...flattenTree(node.children, depth + 1),
+  ])
+}
+
+function getRowClassName(depth: number) {
+  if (depth === 1) {
+    return "bg-[linear-gradient(90deg,rgba(255,244,214,0.9)_0%,rgba(255,251,238,0.9)_100%)]"
+  }
+
+  return "hover:bg-[#fbfcfe]"
+}
+
+function getNameClassName(depth: number) {
+  if (depth === 1) {
+    return "inline-block rounded-full bg-[#fff1c7] px-2.5 py-1 text-[#7a4b00] ring-1 ring-[#f0d48a]"
+  }
+
+  return ""
+}
 
 function Avatar({ name, image }: { name: string; image: string | null }) {
   if (image) {
@@ -9,161 +54,90 @@ function Avatar({ name, image }: { name: string; image: string | null }) {
       <Image
         src={image}
         alt={name}
-        width={40}
-        height={40}
-        className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm"
+        width={28}
+        height={28}
+        unoptimized={image.startsWith("/api/profile/photo")}
+        className="h-7 w-7 rounded-full border border-white object-cover shadow-sm"
       />
     )
   }
+
   const initials = name
     .split(" ")
-    .map((w) => w[0])
+    .map((word) => word[0])
     .slice(0, 2)
     .join("")
     .toUpperCase()
+
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#F5B800] text-sm font-bold text-[#3D1A0E] shadow-sm">
+    <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white bg-[#F5B800] text-[10px] font-bold text-[#3D1A0E] shadow-sm">
       {initials}
     </div>
   )
 }
 
-function OrgNodeCard({
-  node,
-  expandedIds,
-  highlightedIds,
-  onToggle,
-}: {
-  node: OrgNode
-  expandedIds: Set<string>
-  highlightedIds: Set<string>
-  onToggle: (id: string) => void
-}) {
-  const hasChildren = node.children.length > 0
-  const expanded = expandedIds.has(node.id)
-  const highlighted = highlightedIds.has(node.id)
+export default function OrgChartTree({ tree }: { tree: OrgNode[] }) {
+  const rows = flattenTree(tree)
 
   return (
-    <li className="flex flex-col items-center">
-      <button
-        type="button"
-        onClick={() => {
-          if (hasChildren) onToggle(node.id)
-        }}
-        className={`relative z-10 flex min-w-[190px] max-w-[230px] flex-col items-center gap-2 rounded-2xl border px-4 py-3 text-center transition-shadow hover:shadow-md ${
-          hasChildren ? "cursor-pointer" : "cursor-default"
-        } ${
-          highlighted
-            ? "border-brand-gold bg-[#fff7df] shadow-[0_12px_30px_rgba(245,184,0,0.15)]"
-            : "border-gray-200 bg-white"
-        }`}
-      >
-        <Avatar name={node.name} image={node.image} />
-        <div>
-          <p className="text-sm font-semibold leading-tight text-gray-900">
-            {node.name}
-          </p>
-          {node.position && (
-            <p className="mt-0.5 text-xs text-gray-600">{node.position}</p>
-          )}
-          {node.department && (
-            <p className="mt-0.5 text-xs font-medium text-[#2f7ff5]">
-              {node.department}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2 text-[11px]">
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
-            {node.children.length} direct report{node.children.length === 1 ? "" : "s"}
-          </span>
-          {node.reportsCount > node.children.length ? (
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">
-              {node.reportsCount} total below
-            </span>
-          ) : null}
-        </div>
-        {hasChildren && (
-          <span className="absolute -bottom-2.5 left-1/2 z-20 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-gray-300 bg-white text-[10px] text-gray-500 shadow-sm">
-            {expanded ? "\u2212" : `+${node.children.length}`}
-          </span>
-        )}
-      </button>
+    <div className="w-full overflow-hidden rounded-[28px] border border-[#dde6f2] bg-white shadow-[0_18px_48px_rgba(148,163,184,0.14)]">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,2.3fr)_minmax(0,1.2fr)_84px_84px_84px] lg:gap-3 border-b border-[#e8eef6] bg-[#f7fafe] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6f7f92]">
+        <div>Hierarchy</div>
+        <div>Occupant</div>
+        <div className="text-right">Assigned</div>
+        <div className="text-right">Direct</div>
+        <div className="text-right">Below</div>
+      </div>
 
-      {hasChildren && expanded && (
-        <div className="flex flex-col items-center">
-          <div className="h-6 w-px bg-gray-300" />
-
-          {node.children.length === 1 ? (
-            <ul className="flex">
-              <OrgNodeCard
-                node={node.children[0]}
-                expandedIds={expandedIds}
-                highlightedIds={highlightedIds}
-                onToggle={onToggle}
-              />
-            </ul>
-          ) : (
-            <>
-              <div className="relative flex justify-center">
-                <ul className="relative flex gap-3">
-                  {node.children.map((child, i) => (
-                    <li
-                      key={child.id}
-                      className="relative flex flex-col items-center"
-                    >
-                      <div className="h-6 w-px bg-gray-300" />
-                      <OrgNodeCard
-                        node={child}
-                        expandedIds={expandedIds}
-                        highlightedIds={highlightedIds}
-                        onToggle={onToggle}
-                      />
-                      {node.children.length > 1 && (
-                        <>
-                          {i > 0 && (
-                            <div className="absolute top-0 right-1/2 left-[-4px] h-px bg-gray-300" />
-                          )}
-                          {i < node.children.length - 1 && (
-                            <div className="absolute top-0 left-1/2 right-[-4px] h-px bg-gray-300" />
-                          )}
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+      <div className="divide-y divide-[#eef2f7]">
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className={`grid grid-cols-1 gap-3 px-4 py-3 text-sm text-gray-700 transition-colors lg:grid-cols-[minmax(0,2.3fr)_minmax(0,1.2fr)_84px_84px_84px] lg:items-center lg:gap-3 ${getRowClassName(row.depth)}`}
+          >
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: `${row.depth * 18}px` }}>
+                {row.depth > 0 ? (
+                  <span className="text-xs text-[#a2aec0]">{row.depth === 1 ? "└" : "└┈"}</span>
+                ) : null}
+                <div className="min-w-0 space-y-1">
+                  <div className="min-w-0">
+                    <p className={`truncate font-semibold text-gray-900 ${getNameClassName(row.depth)}`}>{row.name}</p>
+                  </div>
+                  {row.position ? <p className="truncate text-xs text-gray-500">{row.position}</p> : null}
+                </div>
               </div>
-            </>
-          )}
-        </div>
-      )}
-    </li>
+            </div>
+
+            <div className="min-w-0">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7d8ba0] lg:hidden">
+                Occupant
+              </p>
+              <div className="flex min-w-0 items-center gap-2">
+                <Avatar name={row.name} image={row.image} />
+                <p className="truncate text-xs text-gray-600">
+                  {row.occupantSummary || "Vacant role"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 rounded-2xl bg-[#f7fafe] p-3 lg:contents">
+              <MetricCell label="Assigned" value={row.headcount} />
+              <MetricCell label="Direct" value={row.directReports} />
+              <MetricCell label="Below" value={row.reportsCount} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
-export default function OrgChartTree({
-  tree,
-  expandedIds,
-  highlightedIds,
-  onToggle,
-}: {
-  tree: OrgNode[]
-  expandedIds: Set<string>
-  highlightedIds: Set<string>
-  onToggle: (id: string) => void
-}) {
+function MetricCell({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex min-w-max justify-center">
-      <ul className="flex gap-8">
-        {tree.map((root) => (
-          <OrgNodeCard
-            key={root.id}
-            node={root}
-            expandedIds={expandedIds}
-            highlightedIds={highlightedIds}
-            onToggle={onToggle}
-          />
-        ))}
-      </ul>
+    <div className="text-center lg:text-right">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7d8ba0] lg:hidden">{label}</p>
+      <p className="text-sm font-medium text-gray-800">{value}</p>
     </div>
   )
 }

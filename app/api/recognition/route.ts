@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { createNotification } from "@/lib/notifications"
+import { normalizeUserImage } from "@/lib/avatar"
 
 const recognitionSchema = z.object({
   toUserId: z.string().min(1),
@@ -35,7 +36,19 @@ export async function GET(req: Request) {
     take: 100,
   })
 
-  return NextResponse.json(recognitions)
+  return NextResponse.json(
+    recognitions.map((recognition) => ({
+      ...recognition,
+      fromUser: {
+        ...recognition.fromUser,
+        image: normalizeUserImage(recognition.fromUser.image, recognition.fromUser.id),
+      },
+      toUser: {
+        ...recognition.toUser,
+        image: normalizeUserImage(recognition.toUser.image, recognition.toUser.id),
+      },
+    }))
+  )
 }
 
 export async function POST(req: Request) {
@@ -81,7 +94,20 @@ export async function POST(req: Request) {
       link: "/recognition",
     })
 
-    return NextResponse.json(recognition, { status: 201 })
+    return NextResponse.json(
+      {
+        ...recognition,
+        fromUser: {
+          ...recognition.fromUser,
+          image: normalizeUserImage(recognition.fromUser.image, recognition.fromUser.id),
+        },
+        toUser: {
+          ...recognition.toUser,
+          image: normalizeUserImage(recognition.toUser.image, recognition.toUser.id),
+        },
+      },
+      { status: 201 }
+    )
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0].message }, { status: 400 })

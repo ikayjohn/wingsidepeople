@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
 import { canAccessAdminSection, type AdminSection } from "@/lib/rbac"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type NavItem = { name: string; href: string; section: AdminSection }
 type NavGroup = { label: string; items: NavItem[] }
@@ -18,22 +19,34 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "People",
+    label: "Staff",
     items: [
-      { name: "Approvals", href: "/admin/employees", section: "approvals" },
-      { name: "Recruitment", href: "/admin/recruitment", section: "recruitment" },
-      { name: "Onboarding", href: "/admin/onboarding", section: "onboarding" },
-      { name: "Offboarding", href: "/admin/offboarding", section: "offboarding" },
+      { name: "Staff List & Approvals", href: "/admin/employees", section: "staff_directory" },
     ],
   },
   {
-    label: "Operations",
+    label: "Org",
     items: [
+      { name: "Org Chart", href: "/admin/org-chart", section: "org_chart" },
+    ],
+  },
+  {
+    label: "Human Resources",
+    items: [
+      { name: "Recruitment", href: "/admin/recruitment", section: "recruitment" },
+      { name: "Onboarding", href: "/admin/onboarding", section: "onboarding" },
+      { name: "Offboarding", href: "/admin/offboarding", section: "offboarding" },
       { name: "Attendance", href: "/admin/attendance", section: "attendance" },
       { name: "Performance", href: "/admin/performance", section: "performance" },
-      { name: "Academy", href: "/admin/academy", section: "academy" },
       { name: "Assets", href: "/admin/assets", section: "assets" },
       { name: "Disciplinary", href: "/admin/disciplinary", section: "disciplinary" },
+      { name: "Work Locations", href: "/admin/work-locations", section: "work_locations" },
+    ],
+  },
+  {
+    label: "Academy",
+    items: [
+      { name: "Academy", href: "/admin/academy", section: "academy" },
     ],
   },
   {
@@ -51,6 +64,12 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Leave & Requests", href: "/admin/leave-requests", section: "leave_requests" },
       { name: "Events", href: "/admin/events", section: "events" },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { name: "Settings", href: "/admin/settings", section: "settings" },
     ],
   },
 ]
@@ -114,6 +133,7 @@ function AdminDropdown({ group, pathname }: { group: NavGroup; pathname: string 
 
 export default function AdminShellNav({ role }: { role: string }) {
   const pathname = usePathname()
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   const visibleGroups = navGroups
     .map((group) => ({
@@ -121,6 +141,17 @@ export default function AdminShellNav({ role }: { role: string }) {
       items: group.items.filter((item) => canAccessAdminSection(role, item.section)),
     }))
     .filter((group) => group.items.length > 0)
+
+  const handleLogout = async () => {
+    if (isSigningOut) return
+    setIsSigningOut(true)
+    try {
+      const supabase = getSupabaseBrowserClient()
+      await supabase.auth.signOut()
+    } finally {
+      window.location.href = "/login"
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#e4eaf3] bg-white/90 backdrop-blur-xl">
@@ -140,12 +171,22 @@ export default function AdminShellNav({ role }: { role: string }) {
             </div>
           </div>
 
-          <Link
-            href="/dashboard"
-            className="rounded-full border border-[#d8e1ee] bg-white px-3 py-1.5 text-sm text-[#374151] hover:-translate-y-0.5 hover:border-[#bfd0e7] hover:bg-[#f8fbff]"
-          >
-            Back to Portal
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard"
+              className="rounded-full border border-[#d8e1ee] bg-white px-3 py-1.5 text-sm text-[#374151] hover:-translate-y-0.5 hover:border-[#bfd0e7] hover:bg-[#f8fbff]"
+            >
+              Back to Portal
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isSigningOut}
+              className="rounded-full border border-[#eeb44d] bg-brand-gold px-3 py-1.5 text-sm font-medium text-brand-brown disabled:opacity-60"
+            >
+              {isSigningOut ? "Signing out..." : "Sign out"}
+            </button>
+          </div>
         </div>
 
         {/* Desktop grouped dropdown nav */}
@@ -174,6 +215,22 @@ export default function AdminShellNav({ role }: { role: string }) {
 
         {/* Mobile nav */}
         <nav className="mt-3 border-t border-[#edf2f8] pt-3 md:hidden">
+          <div className="mb-3 flex gap-2">
+            <Link
+              href="/dashboard"
+              className="flex-1 rounded-md border border-[#d8e1ee] bg-white px-3 py-2 text-center text-sm font-medium text-[#374151]"
+            >
+              Back to Portal
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isSigningOut}
+              className="flex-1 rounded-md border border-[#eeb44d] bg-brand-gold px-3 py-2 text-sm font-medium text-brand-brown disabled:opacity-60"
+            >
+              {isSigningOut ? "Signing out..." : "Sign out"}
+            </button>
+          </div>
           {visibleGroups.map((group) => (
             <div key={group.label} className="mb-2">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9ca3af]">{group.label}</p>

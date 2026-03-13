@@ -23,6 +23,7 @@ export async function PUT(
     where: { id },
     include: {
       user: { select: { id: true, name: true, email: true, managerId: true } },
+      lineManager: { select: { id: true, name: true, email: true } },
     },
   })
   if (!existing) {
@@ -30,33 +31,72 @@ export async function PUT(
   }
 
   const isManagerOnly = hasAnyRole(session!.user.role, ["manager"]) && !hasAnyRole(session!.user.role, ["hr", "admin", "super_admin"])
-  if (isManagerOnly && existing.user.managerId !== session!.user.id) {
+  if (isManagerOnly && existing.lineManager?.id !== session!.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
-  if (existing.status !== "pending") {
-    return NextResponse.json({ error: "Only pending requests can be reviewed" }, { status: 400 })
   }
 
   try {
     const body = await req.json()
     const data = reviewSchema.parse(body)
 
+    const actingAsManager =
+      existing.status === "pending_manager" &&
+      (isManagerOnly || existing.lineManager?.id === session!.user.id)
+    const actingAsHr =
+      existing.status === "pending_hr" &&
+      hasAnyRole(session!.user.role, ["hr", "admin", "super_admin"])
+
+    if (!actingAsManager && !actingAsHr) {
+      return NextResponse.json({ error: "This leave request is not available for your review stage." }, { status: 400 })
+    }
+
     const updated = await prisma.leaveRequest.update({
       where: { id },
-      data: {
-        status: data.status,
-        reviewNotes: data.reviewNotes || null,
-        reviewedById: session!.user.id,
-        reviewedAt: new Date(),
-      },
+      data: actingAsManager
+        ? {
+            status: data.status === "approved" ? "pending_hr" : "rejected",
+            managerDecision: data.status,
+            managerNotes: data.reviewNotes || null,
+            managerReviewedAt: new Date(),
+            reviewNotes: data.status === "rejected" ? data.reviewNotes || null : existing.reviewNotes,
+          }
+        : {
+            status: data.status,
+            hrDecision: data.status,
+            reviewNotes: data.reviewNotes || null,
+            reviewedById: session!.user.id,
+            reviewedAt: new Date(),
+          },
     })
+
+    if (actingAsManager && data.status === "approved") {
+      const hrReviewers = await prisma.user.findMany({
+        where: { role: { in: ["hr", "admin", "super_admin"] } },
+        select: { id: true },
+        take: 50,
+      })
+
+      await Promise.all(
+        hrReviewers.map((reviewer) =>
+          createNotification({
+            userId: reviewer.id,
+            type: "leave_request",
+            title: "Leave request awaiting HR approval",
+            message: `${existing.user.name || existing.user.email} has a leave request awaiting HR approval.`,
+            link: "/admin/leave-requests",
+          })
+        )
+      )
+    }
 
     await createNotification({
       userId: existing.user.id,
       type: "leave_request",
-      title: `Leave request ${data.status}`,
-      message: `Your ${existing.leaveType} leave request (${existing.days} day${existing.days > 1 ? "s" : ""}) was ${data.status}.`,
+      title: actingAsManager && data.status === "approved" ? "Leave request approved by manager" : `Leave request ${data.status}`,
+      message:
+        actingAsManager && data.status === "approved"
+          ? `Your ${existing.leaveType} leave request (${existing.days} day${existing.days > 1 ? "s" : ""}) was approved by your manager and is awaiting HR confirmation.`
+          : `Your ${existing.leaveType} leave request (${existing.days} day${existing.days > 1 ? "s" : ""}) was ${data.status}.`,
       link: "/leave",
     })
 
@@ -65,7 +105,7 @@ export async function PUT(
       action: "review",
       resource: "leave_request",
       resourceId: updated.id,
-      details: { status: updated.status, leaveType: updated.leaveType, employeeId: existing.user.id },
+      details: { status: updated.status, leaveType: updated.leaveType, employeeId: existing.user.id, stage: actingAsManager ? "manager" : "hr" },
       ip,
     })
 

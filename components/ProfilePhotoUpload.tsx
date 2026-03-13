@@ -54,6 +54,7 @@ export default function ProfilePhotoUpload({ image, name }: { image: string | nu
             alt="Profile"
             width={96}
             height={96}
+            unoptimized={currentImage.startsWith("/api/profile/photo")}
             className="w-24 h-24 rounded-full object-cover border-2 border-brand-gold"
           />
         ) : (

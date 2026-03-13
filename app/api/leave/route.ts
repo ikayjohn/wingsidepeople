@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { createNotification } from "@/lib/notifications"
+import { ensureEmployeeHasManager } from "@/lib/workflow-routing"
 
 const leaveSchema = z.object({
   leaveType: z.enum(["annual", "sick", "compassionate", "unpaid", "other"]),
@@ -78,9 +79,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Leave request cannot exceed 60 days in one request" }, { status: 400 })
     }
 
+    const routing = await ensureEmployeeHasManager(session!.user.id, "leave requests")
+    if (routing.error || !routing.employee?.managerId || !routing.employee.manager) {
+      return NextResponse.json({ error: routing.error || "Missing line manager." }, { status: 400 })
+    }
+
     const leave = await prisma.leaveRequest.create({
       data: {
         userId: session!.user.id,
+        lineManagerId: routing.employee.manager.id,
         leaveType: data.leaveType,
         startDate,
         endDate,
@@ -98,15 +105,23 @@ export async function POST(req: Request) {
       take: 50,
     })
     await Promise.all(
-      reviewers.map((reviewer: { id: string }) =>
+      [
+        createNotification({
+          userId: routing.employee.manager.id,
+          type: "leave_request",
+          title: "New leave request awaiting manager review",
+          message: `${leave.user.name || leave.user.email} submitted a ${leave.leaveType} leave request.`,
+          link: "/admin/leave-requests",
+        }),
+        ...reviewers.map((reviewer: { id: string }) =>
         createNotification({
           userId: reviewer.id,
           type: "leave_request",
-          title: "New leave request",
-          message: `${leave.user.name || leave.user.email} submitted a ${leave.leaveType} leave request.`,
+          title: "Leave request logged",
+          message: `${leave.user.name || leave.user.email} submitted a ${leave.leaveType} leave request and it is awaiting manager review.`,
           link: "/admin/leave-requests",
         })
-      )
+      )]
     )
 
     return NextResponse.json(leave, { status: 201 })

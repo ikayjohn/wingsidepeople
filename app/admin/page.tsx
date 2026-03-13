@@ -96,6 +96,21 @@ export default async function AdminDashboard() {
       ),
     },
     {
+      href: "/admin/employees",
+      section: "staff_directory" as const,
+      title: "Staff List & Approvals",
+      description: "Browse the roster and review signup approvals",
+      iconClass: "bg-slate-100 text-slate-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17 20h5V4H2v16h5m10 0H7m10 0v-2a4 4 0 00-4-4H11a4 4 0 00-4 4v2m10-8a3 3 0 11-6 0 3 3 0 016 0M7 10h.01M7 14h.01"
+        />
+      ),
+    },
+    {
       href: "/admin/recruitment",
       section: "recruitment" as const,
       title: "Recruitment",
@@ -107,6 +122,21 @@ export default async function AdminDashboard() {
           strokeLinejoin="round"
           strokeWidth={2}
           d="M18 9V5a2 2 0 00-2-2H8a2 2 0 00-2 2v4m12 0v9a2 2 0 01-2 2H8a2 2 0 01-2-2V9m12 0H6m6 4v4m-2-2h4"
+        />
+      ),
+    },
+    {
+      href: "/admin/org-chart",
+      section: "org_chart" as const,
+      title: "Org Chart",
+      description: "View reporting lines and team structure",
+      iconClass: "bg-cyan-100 text-cyan-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 5v4m0 0H7m5 0h5m-9 0v6m4-6v6m4-6v6M5 19h4m6 0h4"
         />
       ),
     },
@@ -335,6 +365,21 @@ export default async function AdminDashboard() {
         />
       ),
     },
+    {
+      href: "/admin/settings",
+      section: "settings" as const,
+      title: "Settings",
+      description: "Shared admin configuration",
+      iconClass: "bg-slate-100 text-slate-700",
+      icon: (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M10.325 4.317a1 1 0 011.35-.936l1.314.526a1 1 0 00.948-.09l1.18-.787a1 1 0 011.49.465l.53 1.318a1 1 0 00.77.608l1.4.2a1 1 0 01.82 1.18l-.2 1.4a1 1 0 00.29.896l1.003 1.002a1 1 0 010 1.414l-1.003 1.002a1 1 0 00-.29.896l.2 1.4a1 1 0 01-.82 1.18l-1.4.2a1 1 0 00-.77.608l-.53 1.318a1 1 0 01-1.49.465l-1.18-.787a1 1 0 00-.948-.09l-1.314.526a1 1 0 01-1.35-.936v-1.333a1 1 0 00-.514-.874l-1.166-.648a1 1 0 01-.37-1.402l.774-1.1a1 1 0 000-1.15l-.774-1.1a1 1 0 01.37-1.402l1.166-.648a1 1 0 00.514-.874V4.317zM12 15a3 3 0 100-6 3 3 0 000 6z"
+        />
+      ),
+    },
   ]
   const visibleCards = cards.filter((card) => canAccessAdminSection(session.user.role, card.section))
 
@@ -386,7 +431,7 @@ export default async function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {visibleCards.map((card) => (
-          <Link key={card.href} href={card.href} className="panel block overflow-hidden p-6">
+          <Link key={`${card.section}:${card.href}`} href={card.href} className="panel block overflow-hidden p-6">
             <div className="flex items-start gap-4">
               <div className={`rounded-xl p-3 ${card.iconClass}`}>
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

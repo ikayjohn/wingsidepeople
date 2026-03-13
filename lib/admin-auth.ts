@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { getClientIp, isIpAllowed } from "@/lib/security"
 import { canAccessAdminArea } from "@/lib/rbac"
+import { getSecurityAccessRules } from "@/lib/admin-settings"
 
 export async function requireAdmin(req?: Request) {
   const session = await auth()
@@ -15,7 +16,12 @@ export async function requireAdmin(req?: Request) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }), session: null }
   }
 
-  if (!isIpAllowed(ip, process.env.ADMIN_IP_ALLOWLIST)) {
+  const securityRules = await getSecurityAccessRules()
+  const effectiveAllowlist = securityRules.enforceAdminIpAllowlist
+    ? securityRules.adminIpAllowlist || ""
+    : process.env.ADMIN_IP_ALLOWLIST
+
+  if (!isIpAllowed(ip, effectiveAllowlist)) {
     return { error: NextResponse.json({ error: "Forbidden from this IP" }, { status: 403 }), session: null }
   }
 

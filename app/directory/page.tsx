@@ -146,7 +146,7 @@ export default function DirectoryPage() {
           onChange={(e) => setRole(e.target.value)}
           className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-gold focus:outline-none focus:ring-1 focus:ring-brand-gold"
         >
-          <option value="">All Roles</option>
+          <option value="">All Job Roles</option>
           {filters.roles.map((r) => (
             <option key={r} value={r}>{r}</option>
           ))}
@@ -195,7 +195,7 @@ export default function DirectoryPage() {
                             selectedId === employee.id ? "bg-brand-gold-light text-brand-brown" : "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {employee.role}
+                          Access: {employee.role}
                         </span>
                       </div>
                     </button>
@@ -224,7 +224,7 @@ export default function DirectoryPage() {
             <div className="space-y-2 text-sm text-gray-700">
               <p><span className="font-medium">Name:</span> {selected.preferredName || selected.name || "N/A"}</p>
               <p><span className="font-medium">Email:</span> {selected.email}</p>
-              <p><span className="font-medium">Role:</span> {selected.role}</p>
+              <p><span className="font-medium">Access Level:</span> {selected.role}</p>
               <p><span className="font-medium">Department:</span> {selected.department || "N/A"}</p>
               <p><span className="font-medium">Position:</span> {selected.position || "N/A"}</p>
               <p><span className="font-medium">Employment Type:</span> {selected.employmentType || "N/A"}</p>

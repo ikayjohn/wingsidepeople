@@ -15,15 +15,26 @@ export async function GET(req: Request) {
   const leaveRequests = await prisma.leaveRequest.findMany({
     where: {
       ...(status ? { status } : {}),
-      ...(isManagerOnly ? { user: { managerId: session!.user.id } } : {}),
+      ...(isManagerOnly ? { lineManagerId: session!.user.id, status: "pending_manager" } : {}),
     },
     include: {
-      user: { select: { id: true, name: true, email: true, department: true, position: true } },
+      user: { select: { id: true, name: true, email: true, department: true, position: true, managerId: true } },
+      lineManager: { select: { id: true, name: true, email: true } },
       reviewedBy: { select: { id: true, name: true, email: true } },
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 300,
   })
 
-  return NextResponse.json(leaveRequests)
+  return NextResponse.json(
+    leaveRequests.map((item) => ({
+      ...item,
+      reviewStage:
+        item.status === "pending_manager"
+          ? "manager"
+          : item.status === "pending_hr"
+            ? "hr"
+            : null,
+    }))
+  )
 }

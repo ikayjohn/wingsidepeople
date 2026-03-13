@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { daysUntil, isSameMonthDay, nextBirthdayDate, yearsSince } from "@/lib/birthday-utils"
+import { normalizeUserImage } from "@/lib/avatar"
 
 type BirthdayUser = {
   id: string
@@ -41,6 +42,7 @@ export async function GET() {
     const inDays = daysUntil(next, now)
     return {
       ...u,
+      image: normalizeUserImage(u.image, u.id),
       inDays,
       nextBirthday: next,
       anniversaryYears: u.employmentStartDate ? yearsSince(u.employmentStartDate, now) : null,

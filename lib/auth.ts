@@ -3,6 +3,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client"
 import { normalizeRole } from "@/lib/rbac"
 import type { AppSession } from "@/lib/session"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { normalizeUserImage } from "@/lib/avatar"
 
 export async function auth(): Promise<AppSession | null> {
   let supabase
@@ -55,12 +56,6 @@ export async function auth(): Promise<AppSession | null> {
         select: userSelect,
       })
     }
-  } else if (nameFromAuth && dbUser.name !== nameFromAuth) {
-    dbUser = await prisma.user.update({
-      where: { id: dbUser.id },
-      data: { name: nameFromAuth },
-      select: userSelect,
-    })
   }
 
   if (!dbUser) return null
@@ -84,7 +79,7 @@ export async function auth(): Promise<AppSession | null> {
       id: dbUser.id,
       email: dbUser.email,
       name: dbUser.name,
-      image: dbUser.image,
+      image: normalizeUserImage(dbUser.image, dbUser.id),
       role: normalizeRole(dbUser.role),
     },
   }

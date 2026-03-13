@@ -1,19 +1,8 @@
 "use client"
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react"
+import { useDeferredValue, useMemo, useState } from "react"
 import OrgChartTree from "@/components/OrgChartTree"
-import type { OrgNode } from "@/app/org-chart/page"
-
-function collectIds(nodes: OrgNode[]): string[] {
-  return nodes.flatMap((node) => [node.id, ...collectIds(node.children)])
-}
-
-function collectDepthIds(nodes: OrgNode[], maxDepth: number, depth = 0): string[] {
-  return nodes.flatMap((node) => [
-    ...(depth <= maxDepth ? [node.id] : []),
-    ...collectDepthIds(node.children, maxDepth, depth + 1),
-  ])
-}
+import type { OrgNode } from "@/lib/org-chart"
 
 function countNodes(nodes: OrgNode[]): number {
   return nodes.reduce((sum, node) => sum + 1 + countNodes(node.children), 0)
@@ -64,39 +53,10 @@ export default function OrgChartExplorer({
   const [search, setSearch] = useState("")
   const [department, setDepartment] = useState("")
   const deferredSearch = useDeferredValue(search)
-
   const filteredTree = useMemo(
     () => filterTree(tree, deferredSearch, department),
     [tree, deferredSearch, department]
   )
-
-  const defaultExpanded = useMemo(() => new Set(collectDepthIds(filteredTree, 1)), [filteredTree])
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(defaultExpanded)
-
-  useEffect(() => {
-    setExpandedIds(defaultExpanded)
-  }, [defaultExpanded])
-
-  const highlightedIds = useMemo(() => {
-    const query = deferredSearch.trim().toLowerCase()
-    if (!query) return new Set<string>()
-
-    const ids = new Set<string>()
-    const walk = (nodes: OrgNode[]) => {
-      nodes.forEach((node) => {
-        if (
-          node.name.toLowerCase().includes(query) ||
-          node.position?.toLowerCase().includes(query) ||
-          node.department?.toLowerCase().includes(query)
-        ) {
-          ids.add(node.id)
-        }
-        walk(node.children)
-      })
-    }
-    walk(filteredTree)
-    return ids
-  }, [filteredTree, deferredSearch])
 
   const visiblePeople = countNodes(filteredTree)
   const visibleLeaders = countLeaders(filteredTree)
@@ -104,26 +64,26 @@ export default function OrgChartExplorer({
 
   return (
     <div className="space-y-6">
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard label="People" value={String(totalPeople)} tone="blue" />
         <StatCard label="Visible now" value={String(visiblePeople)} tone="green" />
         <StatCard label="Team leads" value={String(visibleLeaders)} tone="amber" />
         <StatCard label="Levels" value={String(visibleDepth)} tone="rose" />
       </section>
 
-      <section className="panel p-5">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(240px,0.8fr)_auto_auto]">
+      <section className="overflow-hidden rounded-[30px] border border-[#e4ebf4] bg-[linear-gradient(135deg,#ffffff_0%,#f7fafd_100%)] p-5 shadow-[0_20px_50px_rgba(148,163,184,0.12)]">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(220px,0.7fr)]">
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by name, role, or department"
-            className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm"
+            className="rounded-2xl border border-[#d7e0ec] bg-white px-4 py-3 text-sm text-gray-700 shadow-sm outline-none transition focus:border-[#c2d1e3] focus:ring-2 focus:ring-[#edf4ff]"
           />
           <select
             value={department}
             onChange={(event) => setDepartment(event.target.value)}
-            className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm"
+            className="rounded-2xl border border-[#d7e0ec] bg-white px-4 py-3 text-sm text-gray-700 shadow-sm outline-none transition focus:border-[#c2d1e3] focus:ring-2 focus:ring-[#edf4ff]"
           >
             <option value="">All departments</option>
             {departments.map((item) => (
@@ -132,40 +92,13 @@ export default function OrgChartExplorer({
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            onClick={() => setExpandedIds(new Set(collectIds(filteredTree)))}
-            className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700"
-          >
-            Expand all
-          </button>
-          <button
-            type="button"
-            onClick={() => setExpandedIds(new Set(collectDepthIds(filteredTree, 1)))}
-            className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700"
-          >
-            Reset view
-          </button>
         </div>
-        <p className="mt-3 text-xs text-gray-500">
-          The chart follows each employee&apos;s assigned line manager. Filter or search to focus on a specific part of the reporting structure.
-        </p>
       </section>
 
-      <section className="panel overflow-x-auto p-6">
+      <section className="overflow-hidden rounded-[32px] border border-[#dde6f2] bg-[linear-gradient(180deg,#fdfefe_0%,#f6f9fc_100%)] p-4 shadow-[0_24px_60px_rgba(148,163,184,0.12)] sm:p-6">
         {filteredTree.length > 0 ? (
           <OrgChartTree
             tree={filteredTree}
-            expandedIds={expandedIds}
-            highlightedIds={highlightedIds}
-            onToggle={(id) =>
-              setExpandedIds((current) => {
-                const next = new Set(current)
-                if (next.has(id)) next.delete(id)
-                else next.add(id)
-                return next
-              })
-            }
           />
         ) : (
           <p className="text-center text-sm text-gray-500">
@@ -187,15 +120,15 @@ function StatCard({
   tone: "blue" | "green" | "amber" | "rose"
 }) {
   const tones = {
-    blue: "border-blue-200 bg-blue-50 text-blue-900",
-    green: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    amber: "border-amber-200 bg-amber-50 text-amber-900",
-    rose: "border-rose-200 bg-rose-50 text-rose-900",
+    blue: "border-[#dbe7fb] bg-[#eff5ff] text-[#1e4c8f]",
+    green: "border-[#d8efde] bg-[#eef9f1] text-[#1f6a42]",
+    amber: "border-[#f4e3b5] bg-[#fff6dd] text-[#8a5b0a]",
+    rose: "border-[#f5d7dc] bg-[#fff0f3] text-[#9a3046]",
   } as const
 
   return (
-    <div className={`rounded-2xl border px-4 py-4 ${tones[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{label}</p>
+    <div className={`rounded-[24px] border px-4 py-4 shadow-sm ${tones[tone]}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
     </div>
   )

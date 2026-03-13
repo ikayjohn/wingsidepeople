@@ -20,13 +20,13 @@ export async function DELETE(
   if (request.userId !== session!.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  if (request.status !== "pending") {
-    return NextResponse.json({ error: "Only pending requests can be canceled" }, { status: 400 })
+  if (request.status !== "pending_manager" && request.status !== "pending_hr") {
+    return NextResponse.json({ error: "Only pending leave requests can be canceled" }, { status: 400 })
   }
 
   await prisma.leaveRequest.update({
     where: { id },
-    data: { status: "canceled", reviewedAt: new Date() },
+    data: { status: "canceled", reviewedAt: new Date(), reviewNotes: "Canceled by employee" },
   })
 
   return NextResponse.json({ success: true })

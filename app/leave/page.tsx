@@ -296,9 +296,10 @@ export default function LeavePage() {
                 <p className="text-xs text-gray-500">
                   {new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()} ({item.days} day{item.days > 1 ? "s" : ""})
                 </p>
-                <p className="text-xs text-gray-500">Status: {item.status}</p>
+                <p className="text-xs text-gray-500">Status: {humanizeStatus(item.status)}</p>
+                {item.reviewNotes ? <p className="text-xs text-gray-600">Notes: {item.reviewNotes}</p> : null}
               </div>
-              {item.status === "pending" && (
+              {(item.status === "pending_manager" || item.status === "pending_hr") && (
                 <button onClick={() => cancelLeave(item.id)} className="text-xs text-red-600 hover:text-red-800">Cancel</button>
               )}
             </div>

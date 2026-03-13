@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
+import { normalizeUserImage } from "@/lib/avatar"
 
 export async function GET(req: Request) {
   const { error, session } = await requireAuth()
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
           }
         : {}),
       ...(department ? { department: { equals: department, mode: "insensitive" } } : {}),
-      ...(role ? { role } : {}),
+      ...(role ? { position: { equals: role, mode: "insensitive" } } : {}),
       ...(location ? { workLocation: { contains: location, mode: "insensitive" } } : {}),
       status: { not: "exited" },
     },
@@ -53,9 +54,10 @@ export async function GET(req: Request) {
       orderBy: { department: "asc" },
     }),
     prisma.user.findMany({
-      distinct: ["role"],
-      select: { role: true },
-      orderBy: { role: "asc" },
+      where: { position: { not: null } },
+      distinct: ["position"],
+      select: { position: true },
+      orderBy: { position: "asc" },
     }),
     prisma.user.findMany({
       where: { workLocation: { not: null } },
@@ -67,10 +69,13 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     currentUserId: session!.user.id,
-    employees,
+    employees: employees.map((employee) => ({
+      ...employee,
+      image: normalizeUserImage(employee.image, employee.id),
+    })),
     filters: {
       departments: departments.map((d: { department: string | null }) => d.department).filter(Boolean),
-      roles: roles.map((r: { role: string | null }) => r.role).filter(Boolean),
+      roles: roles.map((r: { position: string | null }) => r.position).filter(Boolean),
       locations: locations.map((l: { workLocation: string | null }) => l.workLocation).filter(Boolean),
     },
   })

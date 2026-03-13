@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { createNotification } from "@/lib/notifications"
+import { normalizeUserImage } from "@/lib/avatar"
 
 const wishSchema = z.object({
   message: z.string().min(2).max(280),
@@ -35,7 +36,15 @@ export async function GET(
     orderBy: { createdAt: "desc" },
     take: 50,
   })
-  return NextResponse.json(wishes)
+  return NextResponse.json(
+    wishes.map((wish) => ({
+      ...wish,
+      fromUser: {
+        ...wish.fromUser,
+        image: normalizeUserImage(wish.fromUser.image, wish.fromUser.id),
+      },
+    }))
+  )
 }
 
 export async function POST(
@@ -82,7 +91,16 @@ export async function POST(
       link: "/recognition",
     })
 
-    return NextResponse.json(wish, { status: 201 })
+    return NextResponse.json(
+      {
+        ...wish,
+        fromUser: {
+          ...wish.fromUser,
+          image: normalizeUserImage(wish.fromUser.image, wish.fromUser.id),
+        },
+      },
+      { status: 201 }
+    )
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0].message }, { status: 400 })

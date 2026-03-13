@@ -3,6 +3,7 @@ export type UserRole = (typeof USER_ROLES)[number]
 export type AdminSection =
   | "dashboard"
   | "approvals"
+  | "staff_directory"
   | "announcements"
   | "handbook"
   | "policies"
@@ -19,6 +20,9 @@ export type AdminSection =
   | "disciplinary"
   | "offboarding"
   | "analytics"
+  | "org_chart"
+  | "work_locations"
+  | "settings"
 
 export function normalizeRole(role: string | null | undefined): UserRole {
   if (!role) return "employee"
@@ -37,6 +41,7 @@ export function canAccessAdminArea(role: string | null | undefined) {
 const ALL_SECTIONS: AdminSection[] = [
   "dashboard",
   "approvals",
+  "staff_directory",
   "announcements",
   "handbook",
   "policies",
@@ -53,6 +58,9 @@ const ALL_SECTIONS: AdminSection[] = [
   "disciplinary",
   "offboarding",
   "analytics",
+  "org_chart",
+  "work_locations",
+  "settings",
 ]
 
 export function canAccessAdminSection(
@@ -65,10 +73,12 @@ export function canAccessAdminSection(
     manager: [
       "dashboard",
       "approvals",
+      "staff_directory",
       "leave_requests",
       "attendance",
       "performance",
       "disciplinary",
+      "org_chart",
     ],
     hr: ALL_SECTIONS,
     admin: ALL_SECTIONS,

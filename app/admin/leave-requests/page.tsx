@@ -9,9 +9,14 @@ interface LeaveItem {
   endDate: string
   days: number
   status: string
+  managerDecision: string
+  managerNotes: string | null
+  hrDecision: string
   reason: string | null
   reviewNotes: string | null
-  user: { id: string; name: string | null; email: string; department: string | null; position: string | null }
+  reviewStage: "manager" | "hr" | null
+  user: { id: string; name: string | null; email: string; department: string | null; position: string | null; managerId: string | null }
+  lineManager: { id: string; name: string | null; email: string } | null
 }
 
 interface HrItem {
@@ -124,14 +129,23 @@ export default function AdminLeaveRequestsPage() {
                       {item.user.name || item.user.email} • {item.leaveType} • {item.days} day{item.days > 1 ? "s" : ""}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()} • Status: {item.status}
+                      {new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()} • Status: {humanizeStatus(item.status)}
                     </p>
                     {item.reason && <p className="text-xs text-gray-600 mt-1">Reason: {item.reason}</p>}
+                    <p className="text-xs text-gray-500">
+                      Manager: {humanizeStatus(item.managerDecision)} {" • "} HR: {humanizeStatus(item.hrDecision)}
+                    </p>
+                    {item.managerNotes ? <p className="text-xs text-gray-600 mt-1">Manager notes: {item.managerNotes}</p> : null}
+                    {item.reviewNotes ? <p className="text-xs text-gray-600 mt-1">Final notes: {item.reviewNotes}</p> : null}
                   </div>
-                  {item.status === "pending" && (
+                  {item.reviewStage && (
                     <div className="flex gap-2">
-                      <button onClick={() => reviewLeave(item.id, "approved")} className="rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-200">Approve</button>
-                      <button onClick={() => reviewLeave(item.id, "rejected")} className="rounded-md bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200">Reject</button>
+                      <button onClick={() => reviewLeave(item.id, "approved")} className="rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-200">
+                        {item.reviewStage === "manager" ? "Manager Approve" : "HR Approve"}
+                      </button>
+                      <button onClick={() => reviewLeave(item.id, "rejected")} className="rounded-md bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200">
+                        {item.reviewStage === "manager" ? "Manager Reject" : "HR Reject"}
+                      </button>
                     </div>
                   )}
                 </div>
