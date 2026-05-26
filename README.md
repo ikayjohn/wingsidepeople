@@ -6,8 +6,8 @@ Internal portal for Wingside staff to access announcements, handbook, policies, 
 
 - Next.js 16 (App Router)
 - Tailwind CSS
-- Supabase Auth
-- PostgreSQL (Supabase) + Prisma ORM
+- Internal session auth (PostgreSQL-backed)
+- PostgreSQL + Prisma ORM
 - TipTap rich text editor
 - Local filesystem uploads (`/uploads`)
 
@@ -30,7 +30,7 @@ Internal portal for Wingside staff to access announcements, handbook, policies, 
 ## Prerequisites
 
 - Node.js 20+
-- A Supabase project
+- PostgreSQL 16+
 
 ## Environment Setup
 
@@ -43,11 +43,8 @@ cp .env.example .env
 2. Fill `.env` values:
 
 ```env
-DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
-DIRECT_DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?sslmode=require"
-NEXT_PUBLIC_SUPABASE_URL="https://[PROJECT-REF].supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="[SUPABASE-ANON-KEY]"
-SUPABASE_SERVICE_ROLE_KEY="[SUPABASE-SERVICE-ROLE-KEY]"
+DATABASE_URL="postgresql://wingside_user:YOUR_DB_PASSWORD@127.0.0.1:5432/wingside_portal?sslmode=disable"
+DIRECT_DATABASE_URL="postgresql://wingside_user:YOUR_DB_PASSWORD@127.0.0.1:5432/wingside_portal?sslmode=disable"
 ADMIN_IP_ALLOWLIST=""
 ```
 
@@ -111,8 +108,7 @@ npm run start
 ## Security Notes
 
 - Do not commit `.env`
-- Rotate Supabase keys and DB password if exposed
-- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only
+- Rotate DB and email credentials if exposed
 - Admin API routes enforce admin authorization checks
 
 ## License

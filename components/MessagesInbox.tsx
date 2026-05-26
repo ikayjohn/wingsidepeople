@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type ConversationSummary = {
   id: string
@@ -126,34 +125,14 @@ export default function MessagesInbox({ currentUserId }: { currentUserId: string
   }, [fetchConversations])
 
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient()
-    const channel = supabase.channel(`user-inbox:${currentUserId}`, {
-      config: { private: true },
-    })
-
-    channel
-      .on("broadcast", { event: "message.created" }, (payload: { payload: { conversationId: string; message: ConversationMessage } }) => {
-        const eventPayload = payload.payload as {
-          conversationId: string
-          message: ConversationMessage
-        }
-
-        void fetchConversations()
-
-        if (eventPayload.conversationId === selectedConversationId) {
-          setMessages((prev: ConversationMessage[]) =>
-            prev.some((message: ConversationMessage) => message.id === eventPayload.message.id)
-              ? prev
-              : [...prev, eventPayload.message]
-          )
-        }
-      })
-      .subscribe()
-
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [currentUserId, fetchConversations, selectedConversationId])
+    const intervalId = setInterval(() => {
+      void fetchConversations()
+      if (selectedConversationId) {
+        void fetchThread(selectedConversationId)
+      }
+    }, 15000)
+    return () => clearInterval(intervalId)
+  }, [fetchConversations, fetchThread, selectedConversationId])
 
   useEffect(() => {
     if (!selectedConversationId) {

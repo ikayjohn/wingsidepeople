@@ -2,11 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { checkRateLimitPersistent, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
-import { getSupabaseAdminClient } from "@/lib/supabase/admin"
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client"
 import { isValidOrgSelection } from "@/lib/org-structure-data"
 import { getEmployeeIdExample, getEmployeeIdRegex, getEmploymentDefaults, getSecurityAccessRules } from "@/lib/admin-settings"
 import { resolveManagerAssignment } from "@/lib/workflow-routing"
+import bcrypt from "bcryptjs"
 
 export async function POST(req: Request) {
   try {
@@ -108,69 +108,13 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabaseAdmin = getSupabaseAdminClient()
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: normalizedEmail,
-      password,
-      email_confirm: true,
-      user_metadata: { name, employeeId, gender, phone, address, birthday, department, position, employmentType, workLocation },
-    })
-
-    if (authError) {
-      const message = authError.message.toLowerCase()
-      const isAlreadyProvisioned =
-        message.includes("already") ||
-        message.includes("exists") ||
-        message.includes("registered") ||
-        message.includes("duplicate")
-
-      if (isAlreadyProvisioned) {
-        // Recover from a previous partial provisioning where auth user exists but app user row does not.
-        try {
-          await prisma.user.create({
-            data: {
-              email: normalizedEmail,
-              name,
-              employeeId,
-              gender,
-              phone,
-              address: address || null,
-              birthday: birthday ? new Date(birthday) : null,
-              department,
-              position,
-              managerId,
-              workLocation,
-              employmentType,
-              annualLeaveAllowance: employmentDefaults.defaultAnnualLeaveAllowance,
-              status: "pending_approval",
-            },
-          })
-        } catch (dbError) {
-          if (dbError instanceof PrismaClientKnownRequestError && dbError.code === "P2002") {
-            return NextResponse.json(
-              { error: "Unable to create account. Please try again or contact support." },
-              { status: 400 }
-            )
-          }
-          throw dbError
-        }
-
-        return NextResponse.json(
-          { message: "Account created successfully. Awaiting admin approval." },
-          { status: 201 }
-        )
-      }
-
-      return NextResponse.json(
-        { error: "Unable to create account. Please try again or contact support." },
-        { status: 400 }
-      )
-    }
+    const passwordHash = await bcrypt.hash(password, 12)
 
     try {
       await prisma.user.create({
         data: {
           email: normalizedEmail,
+          password: passwordHash,
           name,
           employeeId,
           gender,
@@ -187,15 +131,6 @@ export async function POST(req: Request) {
         },
       })
     } catch (dbError) {
-      const authUserId = authData.user?.id
-      if (authUserId) {
-        try {
-          await supabaseAdmin.auth.admin.deleteUser(authUserId)
-        } catch {
-          // Best effort rollback to avoid orphaned auth records.
-        }
-      }
-
       if (dbError instanceof PrismaClientKnownRequestError && dbError.code === "P2002") {
         return NextResponse.json(
           { error: "Unable to create account. Please try again or contact support." },

@@ -85,7 +85,7 @@ export async function ensureEmployeeHasManager(userId: string, workflowLabel: st
   }
 
   let autoAssigned = false
-  let usedFallback = false
+  const usedFallback = false
 
   if (!employee.managerId) {
     const recommendedManagerId = await resolveManagerAssignment({

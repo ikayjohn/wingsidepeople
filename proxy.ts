@@ -1,6 +1,6 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { SESSION_COOKIE_NAME } from "@/lib/internal-auth"
 
 // Public paths that do NOT require authentication
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"]
@@ -10,7 +10,7 @@ function isPublicPath(pathname: string) {
 }
 
 export default async function proxy(req: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: req.headers },
   })
 
@@ -21,39 +21,8 @@ export default async function proxy(req: NextRequest) {
     return response
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return response
-  }
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return req.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        for (const cookie of cookiesToSet) {
-          req.cookies.set(cookie.name, cookie.value)
-        }
-
-        response = NextResponse.next({
-          request: req,
-        })
-
-        for (const cookie of cookiesToSet) {
-          response.cookies.set(cookie.name, cookie.value, cookie.options)
-        }
-      },
-    },
-  })
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value
+  if (!sessionCookie) {
     // For API routes, return 401 instead of redirecting
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

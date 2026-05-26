@@ -1,68 +1,43 @@
 import { prisma } from "@/lib/prisma"
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client"
 import { normalizeRole } from "@/lib/rbac"
 import type { AppSession } from "@/lib/session"
-import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { normalizeUserImage } from "@/lib/avatar"
+import { cookies } from "next/headers"
+import { hashToken, SESSION_COOKIE_NAME } from "@/lib/internal-auth"
 
 export async function auth(): Promise<AppSession | null> {
-  let supabase
-  try {
-    supabase = await getSupabaseServerClient()
-  } catch {
-    return null
-  }
+  const cookieStore = await cookies()
+  const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  if (!rawToken) return null
 
-  const { data, error } = await supabase.auth.getUser()
-
-  if (error || !data.user || !data.user.email) return null
-
-  const email = data.user.email.toLowerCase()
-
-  const userSelect = {
-    id: true,
-    email: true,
-    name: true,
-    image: true,
-    role: true,
-    status: true,
-    lastLogin: true,
-  } as const
-
-  const nameFromAuth = data.user.user_metadata?.name ?? null
-  let dbUser = await prisma.user.findUnique({
-    where: { email },
-    select: userSelect,
+  const session = await prisma.session.findUnique({
+    where: { sessionToken: hashToken(rawToken) },
+    select: {
+      id: true,
+      expires: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+          role: true,
+          status: true,
+          lastLogin: true,
+        },
+      },
+    },
   })
 
-  if (!dbUser) {
-    try {
-      dbUser = await prisma.user.create({
-        data: {
-          email,
-          name: nameFromAuth,
-          status: "pending_approval",
-        },
-        select: userSelect,
-      })
-    } catch (error) {
-      const isUniqueConflict =
-        error instanceof PrismaClientKnownRequestError && error.code === "P2002"
-      if (!isUniqueConflict) throw error
-
-      // If another parallel request just created this user, re-read it.
-      dbUser = await prisma.user.findUnique({
-        where: { email },
-        select: userSelect,
-      })
+  if (!session || session.expires <= new Date()) {
+    if (session) {
+      await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined)
     }
-  }
-
-  if (!dbUser) return null
-
-  if (dbUser.status !== "active") {
     return null
   }
+
+  const dbUser = session.user
+  if (dbUser.status !== "active") return null
 
   // Only update lastLogin at most once per hour to avoid unnecessary DB writes
   const ONE_HOUR = 60 * 60 * 1000

@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation"
 import { useState, useRef, useEffect } from "react"
 import SearchBar from "@/components/SearchBar"
 import NotificationBell from "@/components/NotificationBell"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import type { AppSession } from "@/lib/session"
 import { canAccessAdminArea } from "@/lib/rbac"
 
@@ -126,8 +125,7 @@ export default function Navbar({ session }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const handleLogout = async () => {
-    const supabase = getSupabaseBrowserClient()
-    await supabase.auth.signOut()
+    await fetch("/api/auth/logout", { method: "POST" })
     window.location.href = "/login"
   }
 

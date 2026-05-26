@@ -1,5 +1,3 @@
-import { getSupabaseAdminClient } from "@/lib/supabase/admin"
-
 export function buildDirectConversationKey(userAId: string, userBId: string) {
   return [userAId, userBId].sort().join(":")
 }
@@ -25,19 +23,6 @@ export function buildUserInboxTopic(userId: string) {
 }
 
 export async function broadcastInboxMessage(userIds: string[], payload: MessageBroadcastPayload) {
-  const supabase = getSupabaseAdminClient()
-
-  await Promise.all(
-    userIds.map(async (userId: string) => {
-      const channel = supabase.channel(buildUserInboxTopic(userId), {
-        config: { private: true },
-      })
-
-      try {
-        await channel.httpSend("message.created", payload)
-      } finally {
-        await supabase.removeChannel(channel).catch(() => "error")
-      }
-    })
-  )
+  void userIds
+  void payload
 }

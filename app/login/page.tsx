@@ -4,33 +4,7 @@ import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { canAccessAdminArea } from "@/lib/rbac"
-
-type PostLoginStatusResponse = {
-  authenticated?: boolean
-  status?: string
-  role?: string | null
-}
-
-async function resolvePostLoginOutcome() {
-  const response = await fetch("/api/auth/post-login-status", { cache: "no-store" })
-  if (!response.ok) return { path: "/dashboard" }
-
-  const data = (await response.json()) as PostLoginStatusResponse
-  if (data.status === "pending_approval") {
-    return { error: "Your account is pending admin approval." }
-  }
-  if (data.status === "rejected") {
-    return { error: "Your account registration was rejected. Contact HR/admin." }
-  }
-  if (data.status && data.status !== "active") {
-    return { error: "Your account is not active. Contact admin." }
-  }
-
-  const path = canAccessAdminArea(data.role) ? "/admin" : "/dashboard"
-  return { path }
-}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -48,47 +22,21 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const supabase = getSupabaseBrowserClient()
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       })
+      const data = (await response.json()) as { error?: string; role?: string | null }
 
-      if (error) {
-        const migrateResponse = await fetch("/api/auth/migrate-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        })
-
-        if (migrateResponse.ok) {
-          const migrateResult = (await migrateResponse.json()) as { migrated?: boolean }
-          if (migrateResult.migrated) {
-            const retry = await supabase.auth.signInWithPassword({ email, password })
-            if (!retry.error) {
-              const outcome = await resolvePostLoginOutcome()
-              if (outcome.error) {
-                await supabase.auth.signOut()
-                setError(outcome.error)
-                return
-              }
-              router.push(outcome.path || "/dashboard")
-              router.refresh()
-              return
-            }
-          }
-        }
-        setError("Invalid email or password")
-      } else {
-        const outcome = await resolvePostLoginOutcome()
-        if (outcome.error) {
-          await supabase.auth.signOut()
-          setError(outcome.error)
-          return
-        }
-        router.push(outcome.path || "/dashboard")
-        router.refresh()
+      if (!response.ok) {
+        setError(data.error || "Invalid email or password")
+        return
       }
+
+      const path = canAccessAdminArea(data.role) ? "/admin" : "/dashboard"
+      router.push(path)
+      router.refresh()
     } catch {
       setError("An error occurred. Please try again.")
     } finally {

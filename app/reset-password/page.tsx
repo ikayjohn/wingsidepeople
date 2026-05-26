@@ -1,14 +1,14 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { useSearchParams } from "next/navigation"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
-  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
+  const searchParams = useSearchParams()
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
@@ -28,12 +28,22 @@ export default function ResetPasswordPage() {
       setError("Passwords do not match.")
       return
     }
+    const token = searchParams.get("token")
+    if (!token) {
+      setError("Reset token is missing or invalid.")
+      return
+    }
 
     setLoading(true)
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password })
-      if (updateError) {
-        setError(updateError.message || "Unable to reset password.")
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      })
+      const data = (await response.json()) as { error?: string }
+      if (!response.ok) {
+        setError(data.error || "Unable to reset password.")
         return
       }
       setMessage("Password reset successful. Redirecting to login...")
@@ -97,4 +107,3 @@ export default function ResetPasswordPage() {
     </div>
   )
 }
-

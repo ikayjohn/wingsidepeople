@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
 import { canAccessAdminSection, type AdminSection } from "@/lib/rbac"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type NavItem = { name: string; href: string; section: AdminSection }
 type NavGroup = { label: string; items: NavItem[] }
@@ -146,8 +145,7 @@ export default function AdminShellNav({ role }: { role: string }) {
     if (isSigningOut) return
     setIsSigningOut(true)
     try {
-      const supabase = getSupabaseBrowserClient()
-      await supabase.auth.signOut()
+      await fetch("/api/auth/logout", { method: "POST" })
     } finally {
       window.location.href = "/login"
     }

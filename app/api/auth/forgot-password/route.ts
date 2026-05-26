@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { createClient } from "@supabase/supabase-js"
+import { prisma } from "@/lib/prisma"
 import { checkRateLimitPersistent, getClientIp, getRateLimitRetryAfter } from "@/lib/security"
+import { generateToken, hashToken } from "@/lib/internal-auth"
+import { sendPasswordResetEmail } from "@/lib/email"
 
 const schema = z.object({
   email: z.string().email(),
@@ -30,17 +32,40 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { email } = schema.parse(body)
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !anonKey) {
-      return NextResponse.json({ error: "Password reset is not configured." }, { status: 500 })
-    }
-
-    const supabase = createClient(url, anonKey)
-    const origin = new URL(req.url).origin
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/reset-password`,
+    const normalizedEmail = email.toLowerCase()
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
     })
+
+    if (user) {
+      const rawToken = generateToken(32)
+      const token = hashToken(rawToken)
+      const identifier = `password-reset:${normalizedEmail}`
+      const expires = new Date(Date.now() + 1000 * 60 * 60)
+
+      await prisma.verificationToken.deleteMany({ where: { identifier } })
+      await prisma.verificationToken.create({
+        data: {
+          identifier,
+          token,
+          expires,
+        },
+      })
+
+      const origin = new URL(req.url).origin
+      const resetUrl = `${origin}/reset-password?token=${rawToken}`
+      try {
+        const result = await sendPasswordResetEmail(normalizedEmail, resetUrl)
+        if (!result.sent) {
+          console.warn(`Password reset email not sent (${result.reason}) for ${normalizedEmail}`)
+          console.info(`Password reset link for ${normalizedEmail}: ${resetUrl}`)
+        }
+      } catch (emailError) {
+        console.error("Password reset email send failed:", emailError)
+        console.info(`Password reset link for ${normalizedEmail}: ${resetUrl}`)
+      }
+    }
 
     // Return generic success to prevent account enumeration
     return NextResponse.json({
