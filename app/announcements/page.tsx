@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
+import Image from "next/image"
 
 type AnnouncementItem = Awaited<ReturnType<typeof prisma.announcement.findMany>>[number]
 
@@ -28,6 +29,24 @@ export default async function AnnouncementsPage() {
               Stay up to date with company news and updates
             </p>
           </div>
+
+          <section className="mb-8 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div className="relative h-48 w-full sm:h-56">
+              <Image
+                src="/people3.jpg"
+                alt="Team collaboration"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-black/20 to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/80">Culture</p>
+                <p className="mt-1 text-lg font-semibold sm:text-xl">Collaboration drives impact across every team.</p>
+              </div>
+            </div>
+          </section>
 
           <div className="bg-white shadow rounded-lg">
             {announcements && announcements.length > 0 ? (

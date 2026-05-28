@@ -133,7 +133,18 @@ export default function RegisterForm({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="h-screen bg-gray-50 lg:grid lg:grid-cols-2">
+      <div className="relative hidden h-screen lg:block">
+        <Image
+          src="/register.jpg"
+          alt="Wingside Register"
+          fill
+          sizes="50vw"
+          className="object-cover object-center"
+        />
+      </div>
+      <div className="h-screen overflow-y-auto px-4 py-12 sm:px-6 lg:px-8">
+      <div className="flex min-h-full items-start justify-center">
       <div className="w-full max-w-[36.5rem] space-y-8">
         <div className="flex flex-col items-center">
           <Image src="/logo.png" alt={companyName} width={80} height={80} className="mb-4" />
@@ -314,6 +325,8 @@ export default function RegisterForm({
             </p>
           ) : null}
         </form>
+      </div>
+      </div>
       </div>
     </div>
   )

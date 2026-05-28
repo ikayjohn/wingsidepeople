@@ -2,10 +2,25 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import Image from "next/image"
 import { daysUntil, isSameMonthDay, nextBirthdayDate } from "@/lib/birthday-utils"
 import { canAccessAdminArea } from "@/lib/rbac"
 import { getMissingProfileFields } from "@/lib/profile-completion"
 import { average, calculateProgressPercentage } from "@/lib/performance"
+import {
+  Megaphone,
+  Target,
+  CheckSquare,
+  HeartHandshake,
+  Cake,
+  CalendarDays,
+  ShieldCheck,
+  GraduationCap,
+  BookOpen,
+  FileText,
+  FolderOpen,
+  ClipboardList,
+} from "lucide-react"
 
 type BirthdayUser = {
   id: string
@@ -283,12 +298,30 @@ export default async function DashboardPage() {
           Your daily snapshot: announcements, policy updates, team celebrations, and upcoming events.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <QuickLink href="/my-kpis" label="My KPIs" />
-          <QuickLink href="/academy" label="Academy" />
-          <QuickLink href="/handbook" label="Handbook" />
-          <QuickLink href="/policies" label="Policies" />
-          <QuickLink href="/documents" label="Documents" />
-          <QuickLink href="/leave" label="Leave & Requests" />
+          <QuickLink href="/my-kpis" label="My KPIs" icon={<Target className="h-4 w-4" />} />
+          <QuickLink href="/academy" label="Academy" icon={<GraduationCap className="h-4 w-4" />} />
+          <QuickLink href="/handbook" label="Handbook" icon={<BookOpen className="h-4 w-4" />} />
+          <QuickLink href="/policies" label="Policies" icon={<ShieldCheck className="h-4 w-4" />} />
+          <QuickLink href="/documents" label="Documents" icon={<FolderOpen className="h-4 w-4" />} />
+          <QuickLink href="/leave" label="Leave & Requests" icon={<ClipboardList className="h-4 w-4" />} />
+        </div>
+      </section>
+
+      <section className="panel mb-6 overflow-hidden">
+        <div className="relative h-56 w-full sm:h-64">
+          <Image
+            src="/people2.jpg"
+            alt="Wingside Team"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-black/20 to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 text-white">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/80">People First</p>
+            <p className="mt-1 text-xl font-semibold sm:text-2xl">Stronger teams build better outcomes.</p>
+          </div>
         </div>
       </section>
 
@@ -318,7 +351,10 @@ export default async function DashboardPage() {
         <div className="space-y-6 xl:col-span-2">
           <section className="panel">
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Announcements</h2>
+              <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <Megaphone className="h-5 w-5 text-brand-brown" />
+                Announcements
+              </h2>
               <Link href="/announcements" className="text-sm font-medium text-brand-brown hover:text-brand-brown-light">
                 View all
               </Link>
@@ -355,6 +391,10 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Performance Snapshot</h2>
+                  <p className="mb-1 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <Target className="h-4 w-4" />
+                    Performance
+                  </p>
                   <p className="mt-1 text-xs text-gray-500">
                     Monitor KPI progress, department performance, learning completion, and upcoming reviews.
                   </p>
@@ -369,21 +409,25 @@ export default async function DashboardPage() {
                   label="KPI progress"
                   value={`${Math.round(personalKpiAverage)}%`}
                   detail={`${kpiSnapshot.length} active KPI${kpiSnapshot.length === 1 ? "" : "s"}`}
+                  icon={<Target className="h-4 w-4" />}
                 />
                 <DashboardMetric
                   label="Department"
                   value={`${Math.round(departmentAverage)}%`}
                   detail={departmentPerformance[0]?.department.name || "No department KPI data"}
+                  icon={<BookOpen className="h-4 w-4" />}
                 />
                 <DashboardMetric
                   label="Training"
                   value={`${trainingCompletionRate}%`}
                   detail={`${completedTraining}/${trainingEnrollments.length} courses completed`}
+                  icon={<GraduationCap className="h-4 w-4" />}
                 />
                 <DashboardMetric
                   label="Reviews"
                   value={upcomingReviews.length}
                   detail={upcomingReviews.length ? "Pending review items" : "No pending reviews"}
+                  icon={<CheckSquare className="h-4 w-4" />}
                 />
               </div>
 
@@ -535,7 +579,10 @@ export default async function DashboardPage() {
 
             <section className="panel">
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                <h2 className="text-lg font-semibold text-gray-900">Onboarding Progress</h2>
+                <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
+                  <CheckSquare className="h-5 w-5 text-brand-brown" />
+                  Onboarding Progress
+                </h2>
                 <Link href="/onboarding" className="interactive-link text-sm font-medium text-brand-brown hover:text-brand-brown-light">
                   Open
                 </Link>
@@ -569,7 +616,10 @@ export default async function DashboardPage() {
 
             <section className="panel">
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                <h2 className="text-lg font-semibold text-gray-900">Recognition</h2>
+                <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
+                  <HeartHandshake className="h-5 w-5 text-brand-brown" />
+                  Recognition
+                </h2>
                 <Link href="/recognition" className="interactive-link text-sm font-medium text-brand-brown hover:text-brand-brown-light">
                   Open
                 </Link>
@@ -593,9 +643,29 @@ export default async function DashboardPage() {
         </div>
 
         <aside className="space-y-6">
+          <section className="panel overflow-hidden">
+            <div className="relative h-[32rem]">
+              <Image
+                src="/people4.jpg"
+                alt="Team momentum"
+                fill
+                sizes="(min-width: 1280px) 33vw, 100vw"
+                className="object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
+              <div className="absolute bottom-3 left-3 right-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/80">Momentum</p>
+                <p className="mt-1 text-sm font-semibold text-white">Small wins compound every week.</p>
+              </div>
+            </div>
+          </section>
+
           <section className="panel">
             <div className="border-b border-gray-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Birthdays</h2>
+              <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <Cake className="h-5 w-5 text-brand-brown" />
+                Birthdays
+              </h2>
             </div>
             <div className="px-5 py-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Today</p>
@@ -627,7 +697,10 @@ export default async function DashboardPage() {
 
           <section className="panel">
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Upcoming Events</h2>
+              <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <CalendarDays className="h-5 w-5 text-brand-brown" />
+                Upcoming Events
+              </h2>
               <Link href="/calendar" className="text-sm font-medium text-brand-brown hover:text-brand-brown-light">
                 Calendar
               </Link>
@@ -648,7 +721,10 @@ export default async function DashboardPage() {
 
           <section className="panel">
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Policy Updates</h2>
+              <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <FileText className="h-5 w-5 text-brand-brown" />
+                Policy Updates
+              </h2>
               <Link href="/policies" className="text-sm font-medium text-brand-brown hover:text-brand-brown-light">
                 Policies
               </Link>
@@ -674,12 +750,13 @@ export default async function DashboardPage() {
   )
 }
 
-function QuickLink({ href, label }: { href: string; label: string }) {
+function QuickLink({ href, label, icon }: { href: string; label: string; icon?: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="interactive-chip rounded-full px-3 py-1.5 text-sm font-medium"
+      className="interactive-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium"
     >
+      {icon}
       {label}
     </Link>
   )
@@ -689,14 +766,19 @@ function DashboardMetric({
   label,
   value,
   detail,
+  icon,
 }: {
   label: string
   value: string | number
   detail: string
+  icon?: React.ReactNode
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {icon}
+        {label}
+      </p>
       <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
       <p className="mt-1 text-xs text-gray-500">{detail}</p>
     </div>

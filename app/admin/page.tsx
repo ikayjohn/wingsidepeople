@@ -171,7 +171,7 @@ export default async function AdminDashboard({
     {
       href: "/admin/org-chart",
       section: "org_chart" as const,
-      title: "Org Chart",
+      title: "Organization Chart",
       description: "View reporting lines and team structure",
       iconClass: "bg-slate-100 text-slate-700",
     },

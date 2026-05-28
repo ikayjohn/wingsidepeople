@@ -191,7 +191,7 @@ export default function AdminShellNav({ role }: { role: string }) {
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Wingernet" width={54} height={54} />
+            <Image src="/logo.png" alt="Wingside® People" width={54} height={54} />
             <div>
               <Link href="/admin" className="group">
                 <p className="bg-gradient-to-r from-[#8b4a34] via-[#5b4fb0] to-[#2f7ff5] bg-clip-text text-[1.55rem] font-semibold leading-none tracking-tight text-transparent">

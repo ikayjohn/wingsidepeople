@@ -20,7 +20,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Dashboard", href: "/dashboard" },
       { name: "Directory", href: "/directory" },
-      { name: "Org Chart", href: "/org-chart" },
+      { name: "Organization Chart", href: "/org-chart" },
     ],
   },
   {
@@ -134,10 +134,10 @@ export default function Navbar({ session }: NavbarProps) {
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <Link href="/dashboard" className="group flex items-center gap-3">
-            <Image src="/logo.png" alt="Wingernet" width={60} height={60} />
+            <Image src="/logo.png" alt="Wingside® People" width={60} height={60} />
             <div>
               <p className="bg-gradient-to-r from-[#8b4a34] via-[#5b4fb0] to-[#2f7ff5] bg-clip-text text-[1.55rem] font-semibold leading-none tracking-tight text-transparent">
-                Wingernet
+                Wingside® People
               </p>
               <p className="mt-1 text-xs font-medium uppercase tracking-[0.14em] text-[#6b7280]">Employee Portal</p>
             </div>
@@ -210,7 +210,7 @@ export default function Navbar({ session }: NavbarProps) {
                 : "text-[#4b5563] hover:-translate-y-0.5 hover:bg-[#f3f7fd] hover:text-[#1f2937]"
             }`}
           >
-            Org Chart
+            Organization Chart
           </Link>
           {canAccessAdminArea(session?.user?.role) && (
             <Link

@@ -48,10 +48,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 md:grid md:grid-cols-2">
       <div className="relative h-64 md:h-auto">
         <Image
-          src="/people.jpg"
+          src="/login.jpg"
           alt="Wingside People"
           fill
           sizes="(min-width: 768px) 50vw, 100vw"
+          unoptimized
           priority
           className="object-cover"
         />
