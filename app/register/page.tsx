@@ -53,12 +53,10 @@ export default async function RegisterPage() {
   if (workLocations.length === 0 || strictOrgRoles.length === 0 || orgDepartments.length === 0) {
     return (
       <div className="px-4 py-6 sm:px-0">
-        <ModuleSetupNotice title="Signup options not configured">
-          <p className="mt-2 text-sm text-gray-600">
-            Registration requires active <strong>Work Locations</strong> and active <strong>Organization Roles</strong>.
-            Configure these in Admin Settings before users can sign up.
-          </p>
-        </ModuleSetupNotice>
+        <ModuleSetupNotice
+          title="Signup options not configured"
+          description="Registration requires active Work Locations and active Organization Roles. Configure these in Admin Settings before users can sign up."
+        />
       </div>
     )
   }
