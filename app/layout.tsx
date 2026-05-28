@@ -7,8 +7,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Wingernet - Employee Portal",
+  title: "Wingside® People - Employee Portal",
   description: "Internal portal for Wingside employees",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

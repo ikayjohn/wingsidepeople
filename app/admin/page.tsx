@@ -4,6 +4,29 @@ import { redirect } from "next/navigation"
 import { canAccessAdminArea, canAccessAdminSection } from "@/lib/rbac"
 import { prisma } from "@/lib/prisma"
 import { getMissingProfileFields, type ProfileSnapshot } from "@/lib/profile-completion"
+import {
+  UserCheck,
+  Users,
+  Briefcase,
+  Network,
+  Megaphone,
+  BookOpen,
+  ShieldCheck,
+  FolderOpen,
+  ClipboardList,
+  LineChart,
+  GraduationCap,
+  Clock3,
+  Package,
+  MessageSquareText,
+  BarChart3,
+  TriangleAlert,
+  LogOut,
+  CalendarDays,
+  Inbox,
+  Settings,
+  type LucideIcon,
+} from "lucide-react"
 
 const STAFF_ROLE_FILTER = { notIn: ["admin", "super_admin"] }
 type PendingApprovalUser = {
@@ -14,10 +37,50 @@ type PendingApprovalUser = {
   createdAt: Date
 }
 
-export default async function AdminDashboard() {
+function DashboardCardIcon({
+  section,
+  className = "h-6 w-6",
+}: {
+  section: string
+  className?: string
+}) {
+  const icons: Record<string, LucideIcon> = {
+    approvals: UserCheck,
+    staff_directory: Users,
+    recruitment: Briefcase,
+    org_chart: Network,
+    announcements: Megaphone,
+    handbook: BookOpen,
+    policies: ShieldCheck,
+    documents: FolderOpen,
+    onboarding: ClipboardList,
+    performance: LineChart,
+    academy: GraduationCap,
+    attendance: Clock3,
+    assets: Package,
+    surveys: MessageSquareText,
+    analytics: BarChart3,
+    disciplinary: TriangleAlert,
+    offboarding: LogOut,
+    events: CalendarDays,
+    leave_requests: Inbox,
+    settings: Settings,
+  }
+  const Icon = icons[section] ?? BarChart3
+  return <Icon className={className} />
+}
+
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string; group?: string }>
+}) {
   const session = await auth()
   if (!session) redirect("/login")
   if (!canAccessAdminArea(session.user.role)) redirect("/dashboard")
+  const params = (await searchParams) ?? {}
+  const q = (params.q ?? "").trim().toLowerCase()
+  const group = (params.group ?? "all").trim().toLowerCase()
 
   const [statusCounts, activeProfiles, pendingApprovals] = await Promise.all([
     prisma.user.groupBy({
@@ -78,6 +141,7 @@ export default async function AdminDashboard() {
     getMissingProfileFields(profile).length > 0
   ).length
   const urgentPendingUsers = pendingApprovals.filter((u: { createdAt: Date }) => pendingAgeDays(u.createdAt) >= 3).length
+  const lastSyncedAt = new Date()
 
   const cards = [
     {
@@ -85,15 +149,8 @@ export default async function AdminDashboard() {
       section: "approvals" as const,
       title: "Approvals",
       description: "Approve new staff signups",
-      iconClass: "bg-violet-100 text-violet-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M17 20h5V4H2v16h5m10 0v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2m12-8a4 4 0 11-8 0 4 4 0 018 0z"
-        />
-      ),
+      iconClass: "bg-amber-100 text-amber-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/employees",
@@ -101,209 +158,107 @@ export default async function AdminDashboard() {
       title: "Staff List & Approvals",
       description: "Browse the roster and review signup approvals",
       iconClass: "bg-slate-100 text-slate-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M17 20h5V4H2v16h5m10 0H7m10 0v-2a4 4 0 00-4-4H11a4 4 0 00-4 4v2m10-8a3 3 0 11-6 0 3 3 0 016 0M7 10h.01M7 14h.01"
-        />
-      ),
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/recruitment",
       section: "recruitment" as const,
       title: "Recruitment",
       description: "Jobs, applicants, and hiring stages",
-      iconClass: "bg-fuchsia-100 text-fuchsia-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M18 9V5a2 2 0 00-2-2H8a2 2 0 00-2 2v4m12 0v9a2 2 0 01-2 2H8a2 2 0 01-2-2V9m12 0H6m6 4v4m-2-2h4"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/org-chart",
       section: "org_chart" as const,
       title: "Org Chart",
       description: "View reporting lines and team structure",
-      iconClass: "bg-cyan-100 text-cyan-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 5v4m0 0H7m5 0h5m-9 0v6m4-6v6m4-6v6M5 19h4m6 0h4"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
     },
     {
       href: "/admin/announcements",
       section: "announcements" as const,
       title: "Announcements",
       description: "Company news",
-      iconClass: "bg-brand-gold-light text-brand-brown",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/handbook",
       section: "handbook" as const,
       title: "Handbook",
       description: "Employee handbook",
-      iconClass: "bg-emerald-100 text-emerald-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
     },
     {
       href: "/admin/policies",
       section: "policies" as const,
       title: "Policies",
       description: "Company policies",
-      iconClass: "bg-amber-100 text-amber-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
     },
     {
       href: "/admin/documents",
       section: "documents" as const,
       title: "Documents",
       description: "Files and resources",
-      iconClass: "bg-sky-100 text-sky-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
     },
     {
       href: "/admin/onboarding",
       section: "onboarding" as const,
       title: "Onboarding",
       description: "Templates and progress",
-      iconClass: "bg-indigo-100 text-indigo-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M17 20h5V4H2v16h5m10 0v-8m0 8H7m10 0h-2M7 20H5m2 0v-8m0 8h2m8-12h-2M7 8h10"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/performance",
       section: "performance" as const,
       title: "Performance",
       description: "Goals, KPIs, and review cycles",
-      iconClass: "bg-blue-100 text-blue-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M11 19V6m0 13l-4-4m4 4l4-4M5 12V8m14 4V4"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/academy",
       section: "academy" as const,
       title: "Academy",
       description: "Courses, assessments, and enrollments",
-      iconClass: "bg-sky-100 text-sky-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0118 17.5c0 .689.058 1.364.169 2.02L12 22l-6.169-2.48A12.08 12.08 0 016 17.5c0-2.211.6-4.282 1.84-6.922L12 14z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/attendance",
       section: "attendance" as const,
       title: "Attendance",
       description: "Check-ins, check-outs, and overtime oversight",
-      iconClass: "bg-lime-100 text-lime-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/assets",
       section: "assets" as const,
       title: "Assets",
       description: "Inventory, assignments, and returns",
-      iconClass: "bg-orange-100 text-orange-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/surveys",
       section: "surveys" as const,
       title: "Surveys",
       description: "Engagement, pulse, and exit interviews",
-      iconClass: "bg-teal-100 text-teal-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4-4-4z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/analytics",
       section: "analytics" as const,
       title: "Analytics",
       description: "Headcount and operational insights",
-      iconClass: "bg-cyan-100 text-cyan-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M11 19V6m4 13V10m4 9V4M7 19v-4"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/disciplinary",
@@ -311,14 +266,7 @@ export default async function AdminDashboard() {
       title: "Disciplinary",
       description: "Cases, actions, and outcomes",
       iconClass: "bg-rose-100 text-rose-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 8v4m0 4h.01M5.07 19h13.86c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.73 3z"
-        />
-      ),
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/offboarding",
@@ -326,44 +274,23 @@ export default async function AdminDashboard() {
       title: "Offboarding",
       description: "Exit workflow and final-day readiness",
       iconClass: "bg-slate-100 text-slate-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"
-        />
-      ),
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/events",
       section: "events" as const,
       title: "Events",
       description: "Calendar management",
-      iconClass: "bg-rose-100 text-rose-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/leave-requests",
       section: "leave_requests" as const,
       title: "Leave and Requests",
       description: "Review queues",
-      iconClass: "bg-cyan-100 text-cyan-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 7V3m8 4V3m-9 8h10m-2 8H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2z"
-        />
-      ),
+      iconClass: "bg-slate-100 text-slate-700",
+      updatedAt: lastSyncedAt,
     },
     {
       href: "/admin/settings",
@@ -371,17 +298,28 @@ export default async function AdminDashboard() {
       title: "Settings",
       description: "Shared admin configuration",
       iconClass: "bg-slate-100 text-slate-700",
-      icon: (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M10.325 4.317a1 1 0 011.35-.936l1.314.526a1 1 0 00.948-.09l1.18-.787a1 1 0 011.49.465l.53 1.318a1 1 0 00.77.608l1.4.2a1 1 0 01.82 1.18l-.2 1.4a1 1 0 00.29.896l1.003 1.002a1 1 0 010 1.414l-1.003 1.002a1 1 0 00-.29.896l.2 1.4a1 1 0 01-.82 1.18l-1.4.2a1 1 0 00-.77.608l-.53 1.318a1 1 0 01-1.49.465l-1.18-.787a1 1 0 00-.948-.09l-1.314.526a1 1 0 01-1.35-.936v-1.333a1 1 0 00-.514-.874l-1.166-.648a1 1 0 01-.37-1.402l.774-1.1a1 1 0 000-1.15l-.774-1.1a1 1 0 01.37-1.402l1.166-.648a1 1 0 00.514-.874V4.317zM12 15a3 3 0 100-6 3 3 0 000 6z"
-        />
-      ),
+      updatedAt: lastSyncedAt,
     },
   ]
-  const visibleCards = cards.filter((card) => canAccessAdminSection(session.user.role, card.section))
+  const visibleCards = cards
+    .filter((card) => canAccessAdminSection(session.user.role, card.section))
+    .filter((card) => {
+      const matchesQuery =
+        q.length === 0 ||
+        card.title.toLowerCase().includes(q) ||
+        card.description.toLowerCase().includes(q)
+      const matchesGroup =
+        group === "all" ||
+        (group === "people" && ["approvals", "staff_directory", "recruitment", "onboarding", "offboarding", "attendance", "performance", "disciplinary"].includes(card.section)) ||
+        (group === "content" && ["announcements", "handbook", "policies", "documents", "surveys"].includes(card.section)) ||
+        (group === "ops" && ["assets", "analytics", "events", "leave_requests", "settings", "academy", "org_chart"].includes(card.section))
+      return matchesQuery && matchesGroup
+    })
+  const dashboardActions = [
+    { href: "/admin/employees", label: "Approve Pending" },
+    { href: "/admin/announcements", label: "Add Announcement" },
+    { href: "/admin/settings", label: "Open Settings" },
+  ]
 
   return (
     <div className="px-4 py-6 sm:px-0">
@@ -391,16 +329,27 @@ export default async function AdminDashboard() {
         <p className="mt-2 max-w-2xl text-sm text-gray-600">
           Manage content, documents, events, and review workflows from one place.
         </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {dashboardActions.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="rounded-full border border-[#d8e1ee] bg-white px-3 py-1.5 text-sm font-medium text-[#374151] hover:bg-[#f8fbff]"
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total staff" value={totalUsers} tone="slate" />
-        <StatCard label="Active staff" value={activeUsers} tone="green" />
-        <StatCard label="Pending approvals" value={pendingUsers} tone={pendingUsers > 0 ? "amber" : "slate"} />
-        <StatCard label="Incomplete profiles" value={incompleteProfiles} tone={incompleteProfiles > 0 ? "rose" : "slate"} />
+        <StatCard href="/admin/employees" label="Total staff" value={totalUsers} tone="slate" />
+        <StatCard href="/admin/employees?status=active" label="Active staff" value={activeUsers} tone="green" />
+        <StatCard href="/admin/employees?status=pending_approval" label="Pending approvals" value={pendingUsers} tone={pendingUsers > 0 ? "amber" : "slate"} />
+        <StatCard href="/admin/employees?filter=incomplete_profiles" label="Incomplete profiles" value={incompleteProfiles} tone={incompleteProfiles > 0 ? "rose" : "slate"} />
       </section>
 
-      {pendingApprovals.length > 0 && (
+      {pendingApprovals.length > 0 ? (
         <section className="panel mb-6 overflow-hidden">
           <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
             <h2 className="text-lg font-semibold text-gray-900">Approval Queue</h2>
@@ -427,25 +376,70 @@ export default async function AdminDashboard() {
             </ul>
           </div>
         </section>
+      ) : (
+        <section className="panel mb-6 p-5">
+          <h2 className="text-base font-semibold text-gray-900">Approval Queue</h2>
+          <p className="mt-2 text-sm text-gray-600">No pending approvals right now. New registration requests will appear here.</p>
+          <Link href="/admin/employees" className="mt-3 inline-flex text-sm font-medium text-brand-brown hover:text-brand-brown-light">
+            Go to staff list
+          </Link>
+        </section>
       )}
+
+      <section className="mb-4 rounded-2xl border border-gray-200 bg-white p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Module Finder</p>
+        <p className="mt-1 text-sm text-gray-600">Use the cards below to jump into each admin module quickly.</p>
+        <form className="mt-3 flex flex-col gap-2 sm:flex-row" method="get" action="/admin">
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Search modules"
+            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-gold focus:outline-none"
+          />
+          <select
+            name="group"
+            defaultValue={group || "all"}
+            className="rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-gold focus:outline-none"
+          >
+            <option value="all">All groups</option>
+            <option value="people">People</option>
+            <option value="content">Content</option>
+            <option value="ops">Ops</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded-xl border border-[#eeb44d] bg-brand-gold px-4 py-2 text-sm font-medium text-brand-brown"
+          >
+            Apply
+          </button>
+        </form>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {visibleCards.map((card) => (
-          <Link key={`${card.section}:${card.href}`} href={card.href} className="panel block overflow-hidden p-6">
-            <div className="flex items-start gap-4">
+          <Link key={`${card.section}:${card.href}`} href={card.href} className="panel block overflow-hidden p-6 transition hover:-translate-y-0.5">
+            <div className="flex min-h-[92px] items-start gap-4">
               <div className={`rounded-xl p-3 ${card.iconClass}`}>
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  {card.icon}
-                </svg>
+                <DashboardCardIcon section={card.section} />
               </div>
-              <div>
+              <div className="flex min-h-[68px] flex-1 flex-col justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">{card.title}</h3>
                 <p className="mt-1 text-sm text-gray-500">{card.description}</p>
+                {"updatedAt" in card && card.updatedAt ? (
+                  <p className="mt-2 text-xs text-gray-400">Updated {formatRelativeTime(card.updatedAt)}</p>
+                ) : null}
               </div>
             </div>
           </Link>
         ))}
       </div>
+
+      {visibleCards.length === 0 && (
+        <section className="panel mt-6 p-5">
+          <h2 className="text-base font-semibold text-gray-900">No modules available</h2>
+          <p className="mt-2 text-sm text-gray-600">Your role currently has no admin modules assigned. Contact a super admin to adjust permissions.</p>
+        </section>
+      )}
     </div>
   )
 }
@@ -456,10 +450,12 @@ function pendingAgeDays(createdAt: Date) {
 }
 
 function StatCard({
+  href,
   label,
   value,
   tone,
 }: {
+  href: string
   label: string
   value: number
   tone: "slate" | "green" | "amber" | "rose"
@@ -472,9 +468,18 @@ function StatCard({
   } as const
 
   return (
-    <div className={`rounded-2xl border px-4 py-3 ${tones[tone]}`}>
+    <Link href={href} className={`block rounded-2xl border px-4 py-3 transition hover:-translate-y-0.5 ${tones[tone]}`}>
       <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
-    </div>
+    </Link>
   )
+}
+
+function formatRelativeTime(date: Date) {
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000))
+  if (minutes < 1) return "just now"
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
 }

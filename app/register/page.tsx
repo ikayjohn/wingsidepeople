@@ -3,10 +3,14 @@ import { getCompanyProfile, getEmploymentDefaults, getSecurityAccessRules } from
 import { prisma } from "@/lib/prisma"
 import ModuleSetupNotice from "@/components/ModuleSetupNotice"
 import { hasPrismaDelegates } from "@/lib/prisma-runtime"
-import { getOrgDepartments, getOrgRoles } from "@/lib/org-structure-data"
+import { getDepartmentsFromRoles, type OrgRoleRecord } from "@/lib/org-structure"
+import { unstable_noStore as noStore } from "next/cache"
+
+export const dynamic = "force-dynamic"
 
 export default async function RegisterPage() {
-  if (!hasPrismaDelegates("workLocation", "companyProfile", "securityAccessRule")) {
+  noStore()
+  if (!hasPrismaDelegates("workLocation", "orgRole", "companyProfile", "securityAccessRule")) {
     return (
       <div className="px-4 py-6 sm:px-0">
         <ModuleSetupNotice title="Settings runtime reload required" />
@@ -14,24 +18,56 @@ export default async function RegisterPage() {
     )
   }
 
-  const [workLocations, companyProfile, securityRules, employmentDefaults, orgDepartments, orgRoles] = await Promise.all([
+  const [workLocations, orgRoles, companyProfile, securityRules, employmentDefaults] = await Promise.all([
     prisma.workLocation.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { name: true },
     }),
+    prisma.orgRole.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+      select: {
+        id: true,
+        title: true,
+        department: true,
+        parentRoleId: true,
+        sortOrder: true,
+        isActive: true,
+      },
+    }),
     getCompanyProfile(),
     getSecurityAccessRules(),
     getEmploymentDefaults(),
-    getOrgDepartments(),
-    getOrgRoles(),
   ])
+
+  const strictOrgRoles = orgRoles as OrgRoleRecord[]
+  const orgDepartments = Array.from(
+    new Set(
+      getDepartmentsFromRoles(strictOrgRoles)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b))
+
+  if (workLocations.length === 0 || strictOrgRoles.length === 0 || orgDepartments.length === 0) {
+    return (
+      <div className="px-4 py-6 sm:px-0">
+        <ModuleSetupNotice title="Signup options not configured">
+          <p className="mt-2 text-sm text-gray-600">
+            Registration requires active <strong>Work Locations</strong> and active <strong>Organization Roles</strong>.
+            Configure these in Admin Settings before users can sign up.
+          </p>
+        </ModuleSetupNotice>
+      </div>
+    )
+  }
 
   return (
     <RegisterForm
       workLocations={workLocations.map((item: { name: string }) => item.name)}
       orgDepartments={orgDepartments}
-      orgRoles={orgRoles}
+      orgRoles={strictOrgRoles}
       companyName={companyProfile.companyName}
       companyTagline={companyProfile.tagline}
       supportEmail={companyProfile.supportEmail}

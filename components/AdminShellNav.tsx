@@ -4,10 +4,39 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
+import { BarChart3, Users, Network, Briefcase, GraduationCap, FileText, ClipboardCheck, Settings, ChevronDown } from "lucide-react"
 import { canAccessAdminSection, type AdminSection } from "@/lib/rbac"
 
 type NavItem = { name: string; href: string; section: AdminSection }
 type NavGroup = { label: string; items: NavItem[] }
+
+function NavIcon({ label, className = "h-4 w-4" }: { label: string; className?: string }) {
+  switch (label) {
+    case "Overview":
+      return <BarChart3 className={className} />
+    case "Staff":
+      return <Users className={className} />
+    case "Org":
+      return <Network className={className} />
+    case "Human Resources":
+      return <Briefcase className={className} />
+    case "Academy":
+      return <GraduationCap className={className} />
+    case "Content":
+      return <FileText className={className} />
+    case "Reviews":
+      return <ClipboardCheck className={className} />
+    case "Settings":
+      return <Settings className={className} />
+    default:
+      return <BarChart3 className={className} />
+  }
+}
+
+function isItemActive(pathname: string, href: string) {
+  if (href === "/admin") return pathname === "/admin"
+  return pathname === href || pathname.startsWith(href + "/")
+}
 
 const navGroups: NavGroup[] = [
   {
@@ -26,7 +55,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Org",
     items: [
-      { name: "Org Chart", href: "/admin/org-chart", section: "org_chart" },
+      { name: "Organization Chart", href: "/admin/org-chart", section: "org_chart" },
     ],
   },
   {
@@ -85,9 +114,7 @@ function AdminDropdown({ group, pathname }: { group: NavGroup; pathname: string 
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  const isGroupActive = group.items.some(
-    (item) => pathname === item.href || pathname.startsWith(item.href + "/")
-  )
+  const isGroupActive = group.items.some((item) => isItemActive(pathname, item.href))
 
   return (
     <div ref={ref} className="relative">
@@ -100,6 +127,7 @@ function AdminDropdown({ group, pathname }: { group: NavGroup; pathname: string 
             : "text-[#4b5563] hover:-translate-y-0.5 hover:bg-[#f3f7fd] hover:text-[#1f2937]"
         }`}
       >
+        <NavIcon label={group.label} />
         {group.label}
         <svg className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -108,7 +136,7 @@ function AdminDropdown({ group, pathname }: { group: NavGroup; pathname: string 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-[#e4eaf3] bg-white py-1 shadow-lg">
           {group.items.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const isActive = isItemActive(pathname, item.href)
             return (
               <Link
                 key={item.href}
@@ -133,6 +161,7 @@ function AdminDropdown({ group, pathname }: { group: NavGroup; pathname: string 
 export default function AdminShellNav({ role }: { role: string }) {
   const pathname = usePathname()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [openMobileGroup, setOpenMobileGroup] = useState<string | null>(null)
 
   const visibleGroups = navGroups
     .map((group) => ({
@@ -151,6 +180,12 @@ export default function AdminShellNav({ role }: { role: string }) {
     }
   }
 
+  const breadcrumbParts = pathname.split("/").filter(Boolean)
+  const breadcrumbItems = breadcrumbParts.map((part, idx) => ({
+    href: "/" + breadcrumbParts.slice(0, idx + 1).join("/"),
+    label: part.replace(/-/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+  }))
+
   return (
     <header className="sticky top-0 z-40 border-b border-[#e4eaf3] bg-white/90 backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
@@ -160,7 +195,7 @@ export default function AdminShellNav({ role }: { role: string }) {
             <div>
               <Link href="/admin" className="group">
                 <p className="bg-gradient-to-r from-[#8b4a34] via-[#5b4fb0] to-[#2f7ff5] bg-clip-text text-[1.55rem] font-semibold leading-none tracking-tight text-transparent">
-                  Wingernet Admin
+                  Staff Administration
                 </p>
               </Link>
               <p className="mt-1 text-xs font-medium uppercase tracking-[0.14em] text-[#6b7280]">
@@ -192,7 +227,7 @@ export default function AdminShellNav({ role }: { role: string }) {
           {visibleGroups.map((group) => {
             if (group.items.length === 1) {
               const item = group.items[0]
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+              const isActive = isItemActive(pathname, item.href)
               return (
                 <Link
                   key={item.href}
@@ -203,13 +238,29 @@ export default function AdminShellNav({ role }: { role: string }) {
                       : "text-[#4b5563] hover:-translate-y-0.5 hover:bg-[#f3f7fd] hover:text-[#1f2937]"
                   }`}
                 >
-                  {item.name}
+                  <span className="inline-flex items-center gap-2">
+                    <NavIcon label={group.label} />
+                    <span>{item.name}</span>
+                  </span>
                 </Link>
               )
             }
             return <AdminDropdown key={group.label} group={group} pathname={pathname} />
           })}
         </nav>
+
+        <div className="mt-3 border-t border-[#edf2f8] pt-3">
+          <nav className="flex flex-wrap items-center gap-1 text-xs text-[#6b7280]">
+            {breadcrumbItems.map((crumb, idx) => (
+              <span key={crumb.href} className="inline-flex items-center">
+                {idx > 0 ? <span className="mx-1 text-[#9ca3af]">/</span> : null}
+                <Link href={crumb.href} className={idx === breadcrumbItems.length - 1 ? "font-semibold text-[#374151]" : "hover:text-[#1f2937]"}>
+                  {crumb.label}
+                </Link>
+              </span>
+            ))}
+          </nav>
+        </div>
 
         {/* Mobile nav */}
         <nav className="mt-3 border-t border-[#edf2f8] pt-3 md:hidden">
@@ -231,25 +282,37 @@ export default function AdminShellNav({ role }: { role: string }) {
           </div>
           {visibleGroups.map((group) => (
             <div key={group.label} className="mb-2">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9ca3af]">{group.label}</p>
-              <div className="grid grid-cols-2 gap-1">
-                {group.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`rounded-md px-3 py-2 text-sm font-medium ${
-                        isActive
-                          ? "bg-gradient-to-r from-[#ffe08f] to-[#ffc64d] text-brand-brown"
-                          : "text-[#4b5563] hover:bg-[#f3f7fd] hover:text-[#1f2937]"
-                      }`}
-                    >
-                      {item.name}
-                    </Link>
-                  )
-                })}
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpenMobileGroup((prev) => (prev === group.label ? null : group.label))}
+                className="flex w-full items-center justify-between rounded-md border border-[#e4eaf3] bg-white px-3 py-2 text-left text-sm font-semibold text-[#374151]"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <NavIcon label={group.label} />
+                  <span>{group.label}</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${openMobileGroup === group.label ? "rotate-180" : ""}`} />
+              </button>
+              {openMobileGroup === group.label ? (
+                <div className="mt-1 grid grid-cols-1 gap-1">
+                  {group.items.map((item) => {
+                    const isActive = isItemActive(pathname, item.href)
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`rounded-md px-3 py-2 text-sm font-medium ${
+                          isActive
+                            ? "bg-gradient-to-r from-[#ffe08f] to-[#ffc64d] text-brand-brown"
+                            : "text-[#4b5563] hover:bg-[#f3f7fd] hover:text-[#1f2937]"
+                        }`}
+                      >
+                        {item.name}
+                      </Link>
+                    )
+                  })}
+                </div>
+              ) : null}
             </div>
           ))}
         </nav>
